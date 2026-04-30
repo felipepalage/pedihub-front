@@ -35,7 +35,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Form side */}
-      <div className="flex flex-col px-6 py-10 lg:px-16">
+      <div className="flex flex-col px-5 py-8 sm:px-6 sm:py-10 lg:px-16">
         <Logo />
 
         <div className="flex-1 flex items-center">
