@@ -30,11 +30,11 @@ const navItems: NavItem[] = [
   { to: "/app/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <aside className="hidden md:flex sticky top-0 h-screen w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+    <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="px-5 py-5 border-b border-sidebar-border">
         <Logo variant="light" />
       </div>
@@ -49,6 +49,7 @@ export function AppSidebar() {
             <Link
               key={item.to}
               to={item.to}
+              onClick={onNavigate}
               className={cn(
                 "group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active
@@ -80,6 +81,7 @@ export function AppSidebar() {
       <div className="border-t border-sidebar-border p-3">
         <Link
           to="/login"
+          onClick={onNavigate}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
         >
           <LogOut className="h-[18px] w-[18px]" />
@@ -89,6 +91,14 @@ export function AppSidebar() {
           Powered by PEDIHUB
         </p>
       </div>
+    </div>
+  );
+}
+
+export function AppSidebar() {
+  return (
+    <aside className="hidden md:flex sticky top-0 h-screen w-64 shrink-0 flex-col border-r border-sidebar-border">
+      <SidebarContent />
     </aside>
   );
 }
