@@ -12,7 +12,15 @@ import {
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type NavItem = {
+  to: "/app" | "/app/pedidos" | "/app/catalogo" | "/app/integracoes" | "/app/relatorios" | "/app/clientes" | "/app/configuracoes";
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  badge?: number;
+};
+
+const navItems: NavItem[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/pedidos", label: "Pedidos", icon: ShoppingBag, badge: 3 },
   { to: "/app/catalogo", label: "Catálogo", icon: Package },
@@ -20,7 +28,7 @@ const navItems = [
   { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/app/clientes", label: "Clientes", icon: Users },
   { to: "/app/configuracoes", label: "Configurações", icon: Settings },
-] as const;
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -52,7 +60,7 @@ export function AppSidebar() {
                 <Icon className="h-[18px] w-[18px]" />
                 {item.label}
               </span>
-              {"badge" in item && item.badge ? (
+              {item.badge ? (
                 <span
                   className={cn(
                     "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
