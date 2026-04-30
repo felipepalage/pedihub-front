@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
   ShoppingBag,
   DollarSign,
@@ -25,13 +26,8 @@ import {
 } from "recharts";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { StatusBadge } from "@/components/orders/StatusBadge";
-import {
-  orders,
-  salesByDay,
-  ordersByHour,
-  channelMix,
-  channelLabels,
-} from "@/lib/mock-data";
+import { channelLabels } from "@/lib/domain";
+import { getDashboard, type DashboardSummary } from "@/lib/api";
 
 export const Route = createFileRoute("/app/")({
   component: DashboardPage,
@@ -42,19 +38,40 @@ const fmt = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
+const alertStyles = {
+  warning: "bg-warning/15 text-warning",
+  destructive: "bg-destructive/10 text-destructive",
+  info: "bg-info/10 text-info",
+};
+
 function DashboardPage() {
-  const recent = orders.slice(0, 5);
+  const [data, setData] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getDashboard()
+      .then(setData)
+      .catch((err) => setError(err instanceof Error ? err.message : "Nao foi possivel carregar o dashboard."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <PageState message="Carregando dashboard..." />;
+  }
+
+  if (error || !data) {
+    return <PageState message={error || "Dashboard indisponivel."} destructive />;
+  }
+
+  const recent = data.recentOrders;
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Olá, Adega 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Aqui está um resumo do seu dia.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Ola, {data.merchantName}!</h1>
+          <p className="text-muted-foreground">Aqui esta um resumo do seu dia.</p>
         </div>
         <Link
           to="/app/pedidos"
@@ -64,72 +81,69 @@ function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           label="Pedidos hoje"
-          value="42"
-          delta="+18% vs ontem"
-          trend="up"
+          value={String(data.stats.ordersToday)}
+          delta={`${formatDelta(data.stats.ordersDeltaPercent)} vs ontem`}
+          trend={data.stats.ordersDeltaPercent >= 0 ? "up" : "down"}
           icon={ShoppingBag}
           accent="primary"
         />
         <StatCard
           label="Faturamento hoje"
-          value={fmt.format(2840.5)}
-          delta="+12% vs ontem"
-          trend="up"
+          value={fmt.format(data.stats.revenueToday)}
+          delta={`${formatDelta(data.stats.revenueDeltaPercent)} vs ontem`}
+          trend={data.stats.revenueDeltaPercent >= 0 ? "up" : "down"}
           icon={DollarSign}
           accent="success"
         />
         <StatCard
-          label="Ticket médio"
-          value={fmt.format(67.6)}
-          delta="−3% vs ontem"
-          trend="down"
+          label="Ticket medio"
+          value={fmt.format(data.stats.averageTicketToday)}
+          delta={`${formatDelta(data.stats.averageTicketDeltaPercent)} vs ontem`}
+          trend={data.stats.averageTicketDeltaPercent >= 0 ? "up" : "down"}
           icon={Receipt}
           accent="info"
         />
         <StatCard
           label="Pendentes"
-          value="7"
-          delta="3 novos pedidos"
+          value={String(data.stats.pendingOrders)}
+          delta="Pedidos aguardando acao"
           icon={Clock}
           accent="warning"
         />
         <StatCard
           label="Entregues"
-          value="32"
-          delta="100% no prazo"
+          value={String(data.stats.deliveredOrders)}
+          delta="Pedidos finalizados hoje"
           trend="up"
           icon={CheckCircle2}
           accent="success"
         />
         <StatCard
           label="Cancelamentos"
-          value="3"
-          delta="7% do total"
+          value={String(data.stats.cancelledOrders)}
+          delta="Pedidos cancelados hoje"
           icon={XCircle}
           accent="destructive"
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-semibold">Vendas — últimos 7 dias</h3>
-              <p className="text-xs text-muted-foreground">
-                Faturamento diário
-              </p>
+              <h3 className="font-semibold">Vendas - ultimos 7 dias</h3>
+              <p className="text-xs text-muted-foreground">Faturamento diario</p>
             </div>
-            <span className="inline-flex items-center gap-1 text-success text-sm font-medium">
-              <TrendingUp className="h-4 w-4" /> +24,5%
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
+              <TrendingUp className="h-4 w-4" />
+              {formatDelta(data.stats.revenueDeltaPercent)}
             </span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={salesByDay}>
+            <AreaChart data={data.salesByDay}>
               <defs>
                 <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} />
@@ -145,7 +159,7 @@ function DashboardPage() {
                   border: "1px solid var(--color-border)",
                   borderRadius: 12,
                 }}
-                formatter={(v: number) => fmt.format(v)}
+                formatter={(value: number) => fmt.format(value)}
               />
               <Area
                 type="monotone"
@@ -160,49 +174,40 @@ function DashboardPage() {
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
           <h3 className="font-semibold">Canal de vendas</h3>
-          <p className="text-xs text-muted-foreground mb-2">Mix do mês</p>
+          <p className="mb-2 text-xs text-muted-foreground">Distribuicao dos pedidos</p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie
-                data={channelMix}
-                dataKey="value"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={3}
-              >
-                {channelMix.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
+              <Pie data={data.channelMix} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                {data.channelMix.map((entry) => (
+                  <Cell key={entry.channel} fill={channelColor(entry.channel)} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value: number) => `${value}%`} />
             </PieChart>
           </ResponsiveContainer>
           <ul className="mt-2 space-y-1.5">
-            {channelMix.map((c) => (
-              <li
-                key={c.name}
-                className="flex items-center justify-between text-sm"
-              >
+            {data.channelMix.map((channel) => (
+              <li key={channel.channel} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: c.color }}
+                    style={{ background: channelColor(channel.channel) }}
                   />
-                  {c.name}
+                  {channel.name}
                 </span>
-                <span className="font-semibold">{c.value}%</span>
+                <span className="font-semibold">{channel.value}%</span>
               </li>
             ))}
           </ul>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-          <h3 className="font-semibold mb-1">Pedidos por horário</h3>
-          <p className="text-xs text-muted-foreground mb-4">Hoje</p>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] lg:col-span-2">
+          <h3 className="mb-1 font-semibold">Pedidos por horario</h3>
+          <p className="mb-4 text-xs text-muted-foreground">Hoje</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={ordersByHour}>
+            <BarChart data={data.ordersByHour}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="hour" stroke="var(--color-muted-foreground)" fontSize={12} />
               <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
@@ -219,60 +224,81 @@ function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-          <h3 className="font-semibold mb-3">Alertas operacionais</h3>
-          <ul className="space-y-3">
-            {[
-              { t: "Estoque baixo: Whisky 12 anos (5 un.)", c: "warning" },
-              { t: "Pedido #1042 aguardando aceite há 4 min", c: "destructive" },
-              { t: "iFood: integração disponível em breve", c: "info" },
-            ].map((a, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <span
-                  className={`mt-1 h-7 w-7 shrink-0 rounded-lg flex items-center justify-center bg-${a.c}/10 text-${a.c}`}
-                >
-                  <AlertTriangle className="h-4 w-4" />
-                </span>
-                <p className="text-sm">{a.t}</p>
-              </li>
-            ))}
-          </ul>
+          <h3 className="mb-3 font-semibold">Alertas operacionais</h3>
+          {data.alerts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum alerta no momento.</p>
+          ) : (
+            <ul className="space-y-3">
+              {data.alerts.map((alert, index) => (
+                <li key={`${alert.text}-${index}`} className="flex items-start gap-3">
+                  <span
+                    className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${alertStyles[alert.severity]}`}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                  </span>
+                  <p className="text-sm">{alert.text}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      {/* Recent orders */}
-      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b">
-          <h3 className="font-semibold">Últimos pedidos</h3>
-          <Link
-            to="/app/pedidos"
-            className="text-sm font-medium text-primary hover:underline"
-          >
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+        <div className="flex items-center justify-between border-b p-5">
+          <h3 className="font-semibold">Ultimos pedidos</h3>
+          <Link to="/app/pedidos" className="text-sm font-medium text-primary hover:underline">
             Ver todos
           </Link>
         </div>
-        <div className="divide-y">
-          {recent.map((o) => (
-            <div
-              key={o.id}
-              className="flex items-center gap-4 p-4 hover:bg-muted/40 transition-colors"
-            >
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center text-sm font-semibold">
-                #{o.number}
+        {recent.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">Nenhum pedido cadastrado ainda.</div>
+        ) : (
+          <div className="divide-y">
+            {recent.map((order) => (
+              <div key={order.id} className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/40">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold">
+                  #{order.number}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{order.customer}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {channelLabels[order.channel]} · {order.time}
+                  </p>
+                </div>
+                <StatusBadge status={order.status} />
+                <div className="w-24 text-right font-semibold">{fmt.format(order.total)}</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{o.customer}</p>
-                <p className="text-xs text-muted-foreground">
-                  {channelLabels[o.channel]} · {o.time}
-                </p>
-              </div>
-              <StatusBadge status={o.status} />
-              <div className="font-semibold w-24 text-right">
-                {fmt.format(o.total)}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function PageState({ message, destructive = false }: { message: string; destructive?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+      <p className={destructive ? "text-destructive" : "text-muted-foreground"}>{message}</p>
+    </div>
+  );
+}
+
+function formatDelta(value: number) {
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(1)}%`;
+}
+
+function channelColor(channel: string) {
+  switch (channel) {
+    case "ifood":
+      return "var(--color-primary)";
+    case "whatsapp":
+      return "var(--color-success)";
+    case "site":
+      return "var(--color-info)";
+    default:
+      return "var(--color-warning)";
+  }
 }

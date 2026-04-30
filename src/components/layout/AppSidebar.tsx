@@ -11,68 +11,61 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 type NavItem = {
-  to: "/app" | "/app/pedidos" | "/app/catalogo" | "/app/integracoes" | "/app/relatorios" | "/app/clientes" | "/app/configuracoes";
+  to:
+    | "/app"
+    | "/app/pedidos"
+    | "/app/catalogo"
+    | "/app/integracoes"
+    | "/app/relatorios"
+    | "/app/clientes"
+    | "/app/configuracoes";
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
-  badge?: number;
 };
 
 const navItems: NavItem[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/app/pedidos", label: "Pedidos", icon: ShoppingBag, badge: 3 },
-  { to: "/app/catalogo", label: "Catálogo", icon: Package },
-  { to: "/app/integracoes", label: "Integrações", icon: Plug },
-  { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },
+  { to: "/app/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { to: "/app/catalogo", label: "Catalogo", icon: Package },
+  { to: "/app/integracoes", label: "Integracoes", icon: Plug },
+  { to: "/app/relatorios", label: "Relatorios", icon: BarChart3 },
   { to: "/app/clientes", label: "Clientes", icon: Users },
-  { to: "/app/configuracoes", label: "Configurações", icon: Settings },
+  { to: "/app/configuracoes", label: "Configuracoes", icon: Settings },
 ];
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { logout } = useAuth();
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="px-5 py-5 border-b border-sidebar-border">
+      <div className="border-b border-sidebar-border px-5 py-5">
         <Logo variant="light" />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
-          const active = item.exact
-            ? pathname === item.to
-            : pathname.startsWith(item.to);
+          const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           const Icon = item.icon;
+
           return (
             <Link
               key={item.to}
               to={item.to}
               onClick={onNavigate}
               className={cn(
-                "group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-[var(--shadow-elegant)]"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               )}
             >
-              <span className="flex items-center gap-3">
-                <Icon className="h-[18px] w-[18px]" />
-                {item.label}
-              </span>
-              {item.badge ? (
-                <span
-                  className={cn(
-                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
-                    active
-                      ? "bg-white/20 text-white"
-                      : "bg-primary text-primary-foreground",
-                  )}
-                >
-                  {item.badge}
-                </span>
-              ) : null}
+              <Icon className="h-[18px] w-[18px]" />
+              {item.label}
             </Link>
           );
         })}
@@ -81,8 +74,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="border-t border-sidebar-border p-3">
         <Link
           to="/login"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          onClick={() => {
+            logout();
+            onNavigate?.();
+          }}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <LogOut className="h-[18px] w-[18px]" />
           Sair
@@ -97,7 +93,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppSidebar() {
   return (
-    <aside className="hidden md:flex sticky top-0 h-screen w-64 shrink-0 flex-col border-r border-sidebar-border">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-sidebar-border md:flex">
       <SidebarContent />
     </aside>
   );

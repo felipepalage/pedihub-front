@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import type { OrderStatus } from "@/lib/mock-data";
-import { statusLabels } from "@/lib/mock-data";
+import type { OrderStatus } from "@/lib/api";
+import { statusLabels } from "@/lib/domain";
 
 const styles: Record<OrderStatus, string> = {
   novo: "bg-info/10 text-info border-info/20",

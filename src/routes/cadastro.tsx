@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,18 +12,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { register } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — PEDIHUB" },
+      { title: "Criar conta - PEDIHUB" },
       {
         name: "description",
-        content:
-          "Comece grátis no PEDIHUB. Centralize iFood, WhatsApp e mais em um só painel.",
+        content: "Crie sua conta no PEDIHUB e centralize iFood, WhatsApp e site proprio.",
       },
     ],
   }),
@@ -33,109 +33,167 @@ export const Route = createFileRoute("/cadastro")({
 const steps = [
   { id: 1, label: "Conta" },
   { id: 2, label: "Estabelecimento" },
-  { id: 3, label: "Endereço" },
-  { id: 4, label: "Branding" },
+  { id: 3, label: "Endereco" },
+  { id: 4, label: "Finalizar" },
+];
+
+const segments = [
+  { value: "adega", label: "Adega" },
+  { value: "bar", label: "Bar" },
+  { value: "restaurante", label: "Restaurante" },
+  { value: "lanchonete", label: "Lanchonete" },
+  { value: "mercado", label: "Mercado" },
 ];
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { ready, isAuthenticated, setSessionFromAuth } = useAuth();
   const [step, setStep] = useState(1);
   const [accepted, setAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    companyName: "",
+    cnpj: "",
+    unitCount: "1",
+    segment: "",
+    street: "",
+    number: "",
+    neighborhood: "",
+    zipCode: "",
+    city: "",
+    state: "",
+  });
 
-  const next = () => setStep((s) => Math.min(4, s + 1));
-  const prev = () => setStep((s) => Math.max(1, s - 1));
+  useEffect(() => {
+    if (ready && isAuthenticated) {
+      navigate({ to: "/app" });
+    }
+  }, [isAuthenticated, navigate, ready]);
 
-  const submit = (e: React.FormEvent) => {
+  const next = () => setStep((current) => Math.min(4, current + 1));
+  const prev = () => setStep((current) => Math.max(1, current - 1));
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accepted) {
-      toast.error("Você precisa aceitar os termos.");
+
+    if (form.password !== form.confirmPassword) {
+      setError("As senhas nao conferem.");
       return;
     }
-    toast.success("Conta criada com sucesso! Bem-vindo ao PEDIHUB.");
-    setTimeout(() => navigate({ to: "/app" }), 700);
+
+    if (!accepted) {
+      setError("Voce precisa aceitar os termos para criar a conta.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const auth = await register({
+        fullName: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        password: form.password,
+        companyName: form.companyName,
+        cnpj: form.cnpj,
+        unitCount: Number(form.unitCount || "1"),
+        segment: form.segment,
+        street: form.street,
+        number: form.number,
+        neighborhood: form.neighborhood,
+        city: form.city,
+        state: form.state,
+        zipCode: form.zipCode,
+      });
+
+      setSessionFromAuth(auth);
+      navigate({ to: "/app" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel criar a conta.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setField = (field: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
   };
 
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b border-border bg-background">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-4 sm:px-6">
           <Logo />
-          <Link
-            to="/login"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Já tem conta? Entrar
+          <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+            Ja tem conta? Entrar
           </Link>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Crie sua conta PEDIHUB
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Em poucos minutos seu estabelecimento estará no ar.
-          </p>
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Crie sua conta PEDIHUB</h1>
+          <p className="mt-2 text-muted-foreground">Em poucos minutos seu estabelecimento estara no ar.</p>
         </div>
 
-        {/* Stepper */}
-        <ol className="flex items-center justify-between mb-10">
-          {steps.map((s, i) => (
-            <li key={s.id} className="flex-1 flex items-center">
+        <ol className="mb-10 flex items-center justify-between">
+          {steps.map((item, index) => (
+            <li key={item.id} className="flex flex-1 items-center">
               <div className="flex flex-col items-center">
                 <div
                   className={cn(
-                    "h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors",
-                    step > s.id
-                      ? "bg-success border-success text-white"
-                      : step === s.id
-                        ? "bg-primary border-primary text-white"
-                        : "bg-background border-border text-muted-foreground",
+                    "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors",
+                    step > item.id
+                      ? "border-success bg-success text-white"
+                      : step === item.id
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-background text-muted-foreground",
                   )}
                 >
-                  {step > s.id ? <Check className="h-4 w-4" /> : s.id}
+                  {step > item.id ? <Check className="h-4 w-4" /> : item.id}
                 </div>
-                <span className="mt-2 text-xs font-medium hidden sm:block">
-                  {s.label}
-                </span>
+                <span className="mt-2 hidden text-xs font-medium sm:block">{item.label}</span>
               </div>
-              {i < steps.length - 1 && (
-                <div
-                  className={cn(
-                    "flex-1 h-0.5 mx-2 transition-colors",
-                    step > s.id ? "bg-success" : "bg-border",
-                  )}
-                />
+              {index < steps.length - 1 && (
+                <div className={cn("mx-2 h-0.5 flex-1 transition-colors", step > item.id ? "bg-success" : "bg-border")} />
               )}
             </li>
           ))}
         </ol>
 
-        <form
-          onSubmit={submit}
-          className="bg-card border border-border rounded-2xl p-6 md:p-8 shadow-[var(--shadow-card)]"
-        >
+        <form onSubmit={submit} className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)] md:p-8">
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Sua conta</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Nome do responsável">
-                  <Input placeholder="Maria Silva" required />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Nome do responsavel">
+                  <Input value={form.fullName} onChange={(e) => setField("fullName", e.target.value)} required />
                 </Field>
                 <Field label="Telefone / WhatsApp">
-                  <Input placeholder="(11) 99999-9999" required />
+                  <Input value={form.phone} onChange={(e) => setField("phone", e.target.value)} required />
                 </Field>
               </div>
               <Field label="Email">
-                <Input type="email" placeholder="voce@empresa.com" required />
+                <Input type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} required />
               </Field>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Senha">
-                  <Input type="password" placeholder="••••••••" required />
+                  <Input type="password" value={form.password} onChange={(e) => setField("password", e.target.value)} required />
                 </Field>
                 <Field label="Confirmar senha">
-                  <Input type="password" placeholder="••••••••" required />
+                  <Input
+                    type="password"
+                    value={form.confirmPassword}
+                    onChange={(e) => setField("confirmPassword", e.target.value)}
+                    required
+                  />
                 </Field>
               </div>
             </div>
@@ -145,27 +203,33 @@ function SignupPage() {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold">Seu estabelecimento</h2>
               <Field label="Nome do estabelecimento">
-                <Input placeholder="Adega do Vinho Bom" required />
+                <Input value={form.companyName} onChange={(e) => setField("companyName", e.target.value)} required />
               </Field>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="CNPJ">
-                  <Input placeholder="00.000.000/0000-00" required />
+                  <Input value={form.cnpj} onChange={(e) => setField("cnpj", e.target.value)} required />
                 </Field>
                 <Field label="Quantidade de unidades">
-                  <Input type="number" defaultValue={1} min={1} />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form.unitCount}
+                    onChange={(e) => setField("unitCount", e.target.value)}
+                    required
+                  />
                 </Field>
               </div>
               <Field label="Segmento">
-                <Select>
+                <Select value={form.segment} onValueChange={(value) => setField("segment", value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="adega">Adega</SelectItem>
-                    <SelectItem value="bar">Bar</SelectItem>
-                    <SelectItem value="restaurante">Restaurante</SelectItem>
-                    <SelectItem value="lanchonete">Lanchonete</SelectItem>
-                    <SelectItem value="mercado">Mercado</SelectItem>
+                    {segments.map((segment) => (
+                      <SelectItem key={segment.value} value={segment.value}>
+                        {segment.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
@@ -174,31 +238,31 @@ function SignupPage() {
 
           {step === 3 && (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Endereço</h2>
-              <div className="grid sm:grid-cols-3 gap-4">
+              <h2 className="text-xl font-semibold">Endereco</h2>
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="sm:col-span-2">
                   <Field label="Rua">
-                    <Input placeholder="Rua das Flores" />
+                    <Input value={form.street} onChange={(e) => setField("street", e.target.value)} />
                   </Field>
                 </div>
-                <Field label="Número">
-                  <Input placeholder="123" />
+                <Field label="Numero">
+                  <Input value={form.number} onChange={(e) => setField("number", e.target.value)} />
                 </Field>
               </div>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Bairro">
-                  <Input placeholder="Centro" />
+                  <Input value={form.neighborhood} onChange={(e) => setField("neighborhood", e.target.value)} />
                 </Field>
                 <Field label="CEP">
-                  <Input placeholder="00000-000" />
+                  <Input value={form.zipCode} onChange={(e) => setField("zipCode", e.target.value)} />
                 </Field>
               </div>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Cidade">
-                  <Input placeholder="São Paulo" />
+                  <Input value={form.city} onChange={(e) => setField("city", e.target.value)} />
                 </Field>
                 <Field label="Estado">
-                  <Input placeholder="SP" maxLength={2} />
+                  <Input value={form.state} onChange={(e) => setField("state", e.target.value.toUpperCase())} maxLength={2} />
                 </Field>
               </div>
             </div>
@@ -206,38 +270,27 @@ function SignupPage() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Sua marca</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <UploadBox label="Logo da empresa" />
-                <UploadBox label="Foto de capa (opcional)" />
+              <h2 className="text-xl font-semibold">Finalizar cadastro</h2>
+              <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                Logo, banner e personalizacao visual podem ser definidos depois em <strong>Configuracoes</strong>.
               </div>
-              <label className="flex items-start gap-2 mt-6 cursor-pointer">
-                <Checkbox
-                  checked={accepted}
-                  onCheckedChange={(v) => setAccepted(!!v)}
-                />
+              <label className="mt-4 flex cursor-pointer items-start gap-2">
+                <Checkbox checked={accepted} onCheckedChange={(value) => setAccepted(!!value)} />
                 <span className="text-sm text-muted-foreground">
-                  Aceito os{" "}
-                  <a href="#" className="text-primary font-medium">
-                    termos de uso
-                  </a>{" "}
-                  e a{" "}
-                  <a href="#" className="text-primary font-medium">
-                    política de privacidade
-                  </a>
-                  .
+                  Aceito os termos de uso e a politica de privacidade.
                 </span>
               </label>
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-8 pt-6 border-t">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={prev}
-              disabled={step === 1}
-            >
+          {error ? (
+            <div className="mt-6 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="mt-8 flex items-center justify-between border-t pt-6">
+            <Button type="button" variant="ghost" onClick={prev} disabled={step === 1 || loading}>
               Voltar
             </Button>
             {step < 4 ? (
@@ -245,7 +298,9 @@ function SignupPage() {
                 Continuar
               </Button>
             ) : (
-              <Button type="submit">Criar conta</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Criando conta..." : "Criar conta"}
+              </Button>
             )}
           </div>
         </form>
@@ -265,22 +320,6 @@ function Field({
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
-    </div>
-  );
-}
-
-function UploadBox({ label }: { label: string }) {
-  return (
-    <div>
-      <Label className="mb-1.5 block">{label}</Label>
-      <button
-        type="button"
-        className="w-full aspect-[3/2] rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground"
-      >
-        <Upload className="h-6 w-6" />
-        <span className="text-sm font-medium">Selecionar imagem</span>
-        <span className="text-xs">PNG ou JPG até 2MB</span>
-      </button>
     </div>
   );
 }
