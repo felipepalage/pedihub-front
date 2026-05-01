@@ -8,6 +8,7 @@ export interface SessionUser {
   merchantName: string;
   plan: string;
   status: string;
+  slug: string;
 }
 
 export interface SessionSnapshot {

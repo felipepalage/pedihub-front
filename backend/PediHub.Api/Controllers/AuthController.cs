@@ -127,7 +127,7 @@ public sealed class AuthController(
 
     private static AuthUserDto ToUserDto(User user, Merchant merchant)
     {
-        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status, merchant.LogoUrl, user.Role, merchant.ValidUntil);
+        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status, merchant.LogoUrl ?? "", user.Role, merchant.ValidUntil, merchant.Slug);
     }
 
     private static string RemoveDiacritics(string text) 

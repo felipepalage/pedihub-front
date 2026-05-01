@@ -303,19 +303,37 @@ function StorePage() {
           </div>
         )}
         <div className="absolute inset-0 bg-black/10" />
+        
+        {/* PediHub Watermark */}
+        <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 backdrop-blur-md">
+          <span className="text-[10px] font-medium text-white/70">Plataforma</span>
+          <div className="flex items-center gap-1">
+            <div className="h-4 w-4 rounded bg-primary p-0.5">
+              <Utensils className="h-full w-full text-white" />
+            </div>
+            <span className="text-xs font-bold tracking-tighter text-white">PEDIHUB</span>
+          </div>
+        </div>
       </div>
 
       <div className="mx-auto max-w-5xl px-4">
         {/* Store Info Card */}
         <div className="relative -mt-16 flex flex-col gap-4 rounded-3xl border bg-card p-6 shadow-xl md:flex-row md:items-center">
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-4 border-card bg-white shadow-lg md:h-32 md:w-32 mx-auto md:mx-0">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-4 border-card bg-white shadow-lg md:h-32 md:w-32 mx-auto md:mx-0 relative group">
             {store.logoUrl ? (
               <img src={getImageUrl(store.logoUrl)} alt={store.companyName} className="h-full w-full object-contain p-2" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-bold text-primary-foreground">
+              <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-bold text-primary-foreground uppercase">
                 {store.companyName.charAt(0)}
               </div>
             )}
+            
+            {/* Logo Watermark Badge */}
+            <div className="absolute -bottom-1 -right-1 rounded-lg bg-white p-1 shadow-md border border-border">
+              <div className="h-5 w-5 rounded-md bg-primary p-0.5">
+                <Utensils className="h-full w-full text-white" />
+              </div>
+            </div>
           </div>
           <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-3">

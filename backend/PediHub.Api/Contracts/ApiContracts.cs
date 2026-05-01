@@ -26,9 +26,10 @@ public sealed record AuthUserDto(
     string MerchantName,
     string Plan,
     string Status,
-    string? LogoUrl,
+    string LogoUrl,
     string Role,
-    DateTimeOffset ValidUntil);
+    DateTimeOffset ValidUntil,
+    string Slug);
 
 public sealed record AuthResponse(string Token, DateTimeOffset ExpiresAt, AuthUserDto User);
 
@@ -173,7 +174,8 @@ public sealed record SettingsDto(
     string BannerUrl,
     string PixKey,
     string MercadoPagoAccessToken,
-    string WhatsAppNumber);
+    string WhatsAppNumber,
+    string Slug);
 
 public sealed record UpdateSettingsRequest(
     string CompanyName,

@@ -21,6 +21,7 @@ export interface AuthUser {
   logoUrl?: string | null;
   role: string;
   validUntil: string;
+  slug: string;
 }
 
 export interface AuthResponse {
@@ -217,6 +218,7 @@ export interface SettingsPayload {
   logoUrl: string;
   bannerUrl: string;
   whatsAppNumber: string;
+  slug: string;
 }
 
 export type Settings = SettingsPayload;

@@ -76,6 +76,7 @@ public sealed class SettingsController(PediHubDbContext dbContext) : ControllerB
             merchant.BannerUrl,
             merchant.PixKey,
             merchant.MercadoPagoAccessToken,
-            merchant.WhatsAppNumber);
+            merchant.WhatsAppNumber,
+            merchant.Slug);
     }
 }

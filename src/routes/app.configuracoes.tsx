@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,7 @@ type FormState = {
   pixKey: string;
   mercadoPagoAccessToken: string;
   whatsAppNumber: string;
+  slug: string;
 };
 
 const initialForm: FormState = {
@@ -100,6 +102,7 @@ const initialForm: FormState = {
   logoUrl: "",
   bannerUrl: "",
   whatsAppNumber: "",
+  slug: "",
 };
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
@@ -127,9 +130,13 @@ function SettingsPage() {
     isActive: true
   });
 
+  const { user } = useAuth();
+  const currentSlug = form.slug || user?.slug;
+
   useEffect(() => {
     Promise.all([getSettings(), getLoyaltyProgram(), getTables(), getCoupons()])
       .then(([settings, loyaltyData, tablesData, couponsData]) => {
+        console.log("Settings from API:", settings);
         setForm({
           ...settings,
           averagePrepMinutes: String(settings.averagePrepMinutes),
@@ -138,6 +145,7 @@ function SettingsPage() {
           pixKey: settings.pixKey || "",
           mercadoPagoAccessToken: settings.mercadoPagoAccessToken || "",
           whatsAppNumber: settings.whatsAppNumber || "",
+          slug: settings.slug || "",
         });
         setLoyalty(loyaltyData);
         setTables(tablesData);
@@ -272,14 +280,51 @@ function SettingsPage() {
         </TabsList>
 
          <TabsContent value="empresa" className="mt-6 space-y-4">
-           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nome da Empresa">
                 <Input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
               </Field>
               <Field label="CNPJ">
                 <Input value={form.cnpj} onChange={e => setForm({...form, cnpj: e.target.value})} />
               </Field>
-           </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border bg-primary/5 p-4">
+              <Label className="text-xs font-bold text-primary uppercase">Link da sua Loja Pública</Label>
+              <div className="mt-2 flex gap-2">
+                <Input 
+                  readOnly 
+                  value={currentSlug ? `${window.location.origin}/${currentSlug}` : "Carregando link..."} 
+                  className="bg-background font-mono text-xs"
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  disabled={!currentSlug}
+                  onClick={() => {
+                    if (currentSlug) {
+                      navigator.clipboard.writeText(`${window.location.origin}/${currentSlug}`);
+                      toast.success("Link copiado!");
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  disabled={!currentSlug}
+                  onClick={() => {
+                    if (currentSlug) {
+                      window.open(`${window.location.origin}/${currentSlug}`, "_blank");
+                    }
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="mt-2 text-[10px] text-muted-foreground uppercase">Compartilhe este link com seus clientes para receber pedidos.</p>
+            </div>
 
            <div className="grid gap-4 sm:grid-cols-2 mt-4 pt-4 border-t">
                <div className="col-span-full">
