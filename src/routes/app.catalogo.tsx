@@ -22,6 +22,7 @@ import {
   getProducts,
   toggleProductAvailability,
   updateProduct,
+  uploadMedia,
   type Product,
   type ProductPayload,
 } from "@/lib/api";
@@ -68,6 +69,15 @@ const emptyForm: ProductFormState = {
   promo: false,
   modifierGroups: [],
 };
+
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("data:")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 function CatalogPage() {
   const [cat, setCat] = useState<string>("Todas");
@@ -207,7 +217,7 @@ function CatalogPage() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -216,11 +226,14 @@ function CatalogPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setForm(prev => ({ ...prev, image: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    const loadingToast = toast.loading("Enviando imagem...");
+    try {
+      const { url } = await uploadMedia(file);
+      setForm(prev => ({ ...prev, image: url }));
+      toast.success("Imagem enviada!", { id: loadingToast });
+    } catch (err) {
+      toast.error("Erro ao enviar imagem.", { id: loadingToast });
+    }
   };
 
   const onToggleAvailability = async (id: string) => {
@@ -309,11 +322,11 @@ function CatalogPage() {
               key={product.id}
               className="group overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-hover)]"
             >
-              <div className="relative flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-muted to-muted/50 text-7xl">
-                {product.image?.startsWith("data:") ? (
-                  <img src={product.image} className="h-full w-full object-cover" />
+              <div className="relative flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-muted to-muted/50 text-7xl overflow-hidden">
+                {product.image && product.image.length > 5 ? (
+                  <img src={getImageUrl(product.image)} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                 ) : (
-                  product.image
+                  <Utensils className="h-16 w-16 opacity-10" />
                 )}
                 {product.promo ? (
                   <span className="absolute left-3 top-3 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
@@ -375,11 +388,11 @@ function CatalogPage() {
 
           <form className="space-y-6" onSubmit={submit}>
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed p-6 bg-muted/30">
-              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-background bg-card text-5xl shadow-sm">
-                {form.image.startsWith("data:") ? (
-                  <img src={form.image} className="h-full w-full object-cover" />
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-background bg-card shadow-sm">
+                {form.image && form.image.length > 5 ? (
+                  <img src={getImageUrl(form.image)} className="h-full w-full object-cover" />
                 ) : (
-                  form.image
+                  <Utensils className="h-12 w-12 opacity-10" />
                 )}
               </div>
               <div className="flex flex-col items-center gap-2">

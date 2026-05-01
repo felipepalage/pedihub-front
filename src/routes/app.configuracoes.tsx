@@ -14,9 +14,23 @@ import {
   getTables,
   createTable,
   deleteTable,
+  uploadMedia,
+  getCoupons,
+  createCoupon,
+  deleteCoupon,
+  toggleCoupon,
   type LoyaltyProgram,
-  type MerchantTable
+  type MerchantTable,
+  type Coupon
 } from "@/lib/api";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
 import { 
   MessageCircle, 
   Eye, 
@@ -33,7 +47,9 @@ import {
   Award, 
   Plus, 
   Trash,
-  Ticket
+  Ticket,
+  Upload,
+  Image as ImageIcon
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/configuracoes")({
@@ -86,6 +102,14 @@ const initialForm: FormState = {
   whatsAppNumber: "",
 };
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 function SettingsPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [loading, setLoading] = useState(true);
@@ -93,10 +117,19 @@ function SettingsPage() {
   const [loyalty, setLoyalty] = useState<LoyaltyProgram | null>(null);
   const [tables, setTables] = useState<MerchantTable[]>([]);
   const [newTableNum, setNewTableNum] = useState("");
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponModalOpen, setCouponModalOpen] = useState(false);
+  const [newCoupon, setNewCoupon] = useState<Partial<Coupon>>({
+    code: "",
+    type: "fixed",
+    discountAmount: 0,
+    minOrderValue: 0,
+    isActive: true
+  });
 
   useEffect(() => {
-    Promise.all([getSettings(), getLoyaltyProgram(), getTables()])
-      .then(([settings, loyaltyData, tablesData]) => {
+    Promise.all([getSettings(), getLoyaltyProgram(), getTables(), getCoupons()])
+      .then(([settings, loyaltyData, tablesData, couponsData]) => {
         setForm({
           ...settings,
           averagePrepMinutes: String(settings.averagePrepMinutes),
@@ -108,6 +141,7 @@ function SettingsPage() {
         });
         setLoyalty(loyaltyData);
         setTables(tablesData);
+        setCoupons(couponsData);
       })
       .catch(() => toast.error("Erro ao carregar dados."))
       .finally(() => setLoading(false));
@@ -165,7 +199,57 @@ function SettingsPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Carregando...</div>;
+  const handleToggleCoupon = async (id: string) => {
+    try {
+      await toggleCoupon(id);
+      setCoupons(prev => prev.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c));
+      toast.success("Status do cupom atualizado!");
+    } catch (err) {
+      toast.error("Erro ao atualizar cupom.");
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm("Excluir este cupom permanentemente?")) return;
+    try {
+      await deleteCoupon(id);
+      setCoupons(prev => prev.filter(c => c.id !== id));
+      toast.success("Cupom removido!");
+    } catch (err) {
+      toast.error("Erro ao excluir cupom.");
+    }
+  };
+
+  const handleCreateCoupon = async () => {
+    if (!newCoupon.code) return toast.error("Informe o código.");
+    if (!newCoupon.discountAmount || newCoupon.discountAmount <= 0) return toast.error("Informe o valor.");
+
+    try {
+      const created = await createCoupon(newCoupon);
+      setCoupons(prev => [...prev, created]);
+      setCouponModalOpen(false);
+      setNewCoupon({ code: "", type: "fixed", discountAmount: 0, minOrderValue: 0, isActive: true });
+      toast.success("Cupom criado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar cupom.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "logoUrl" | "bannerUrl") => {
+     const file = e.target.files?.[0];
+     if (!file) return;
+
+     const loadingToast = toast.loading("Enviando imagem...");
+     try {
+       const { url } = await uploadMedia(file);
+       setForm(prev => ({ ...prev, [field]: url }));
+       toast.success("Imagem enviada com sucesso!", { id: loadingToast });
+     } catch (err) {
+       toast.error("Erro ao enviar imagem.", { id: loadingToast });
+     }
+   };
+
+   if (loading) return <div className="p-8 text-center">Carregando...</div>;
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
@@ -194,6 +278,83 @@ function SettingsPage() {
               </Field>
               <Field label="CNPJ">
                 <Input value={form.cnpj} onChange={e => setForm({...form, cnpj: e.target.value})} />
+              </Field>
+           </div>
+
+           <div className="grid gap-4 sm:grid-cols-2 mt-4 pt-4 border-t">
+               <div className="col-span-full">
+                 <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Identidade Visual</h3>
+               </div>
+               <div className="space-y-4">
+                 <Label className="text-xs font-bold text-muted-foreground uppercase">Logo da Loja</Label>
+                 <div className="flex items-center gap-4">
+                   <div className="h-20 w-20 rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden bg-muted/20">
+                     {form.logoUrl ? (
+                       <img src={getImageUrl(form.logoUrl)} className="h-full w-full object-contain" />
+                     ) : (
+                       <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                     )}
+                   </div>
+                   <div className="flex-1">
+                     <input 
+                       type="file" 
+                       id="logo-upload" 
+                       className="hidden" 
+                       accept="image/*"
+                       onChange={(e) => handleFileUpload(e, "logoUrl")}
+                     />
+                     <Button type="button" variant="outline" size="sm" asChild>
+                       <label htmlFor="logo-upload" className="cursor-pointer">
+                         <Upload className="h-4 w-4 mr-2" /> Selecionar Logo
+                       </label>
+                     </Button>
+                     <p className="text-[10px] text-muted-foreground mt-2">PNG ou JPG até 2MB</p>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="space-y-4">
+                 <Label className="text-xs font-bold text-muted-foreground uppercase">Banner / Capa</Label>
+                 <div className="flex flex-col gap-3">
+                   <div className="h-20 w-full rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden bg-muted/20">
+                     {form.bannerUrl ? (
+                       <img src={getImageUrl(form.bannerUrl)} className="h-full w-full object-cover" />
+                     ) : (
+                       <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                     )}
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <input 
+                       type="file" 
+                       id="banner-upload" 
+                       className="hidden" 
+                       accept="image/*"
+                       onChange={(e) => handleFileUpload(e, "bannerUrl")}
+                     />
+                     <Button type="button" variant="outline" size="sm" asChild>
+                       <label htmlFor="banner-upload" className="cursor-pointer">
+                         <Upload className="h-4 w-4 mr-2" /> Selecionar Banner
+                       </label>
+                     </Button>
+                     <p className="text-[10px] text-muted-foreground">Formato paisagem (capa)</p>
+                   </div>
+                 </div>
+               </div>
+
+               <Field label="Cor Principal">
+                <div className="flex gap-2">
+                  <Input 
+                    type="color" 
+                    value={form.primaryColor} 
+                    onChange={e => setForm({...form, primaryColor: e.target.value})} 
+                    className="w-12 h-10 p-1 cursor-pointer"
+                  />
+                  <Input 
+                    value={form.primaryColor} 
+                    onChange={e => setForm({...form, primaryColor: e.target.value})} 
+                    className="flex-1 font-mono"
+                  />
+                </div>
               </Field>
            </div>
            <Button onClick={saveGeneral} disabled={saving}>Salvar Empresa</Button>
@@ -229,25 +390,153 @@ function SettingsPage() {
          </TabsContent>
 
          <TabsContent value="cupons" className="mt-6 space-y-4">
-          <div className="flex flex-col items-center justify-center p-12 text-center border rounded-2xl bg-muted/10 border-dashed">
-            <Ticket className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-            <h3 className="text-xl font-bold">Gerenciamento de Cupons</h3>
-            <p className="text-muted-foreground mt-2 max-w-sm">Crie cupons de desconto, defina validade e regras de uso para atrair mais clientes. Esta funcionalidade estará liberada na próxima atualização da plataforma.</p>
-            <Button variant="outline" className="mt-6 pointer-events-none opacity-50">Em Breve</Button>
-          </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Cupons de Desconto</h3>
+              <Button onClick={() => setCouponModalOpen(true)} className="gap-2">
+                <Plus className="h-4 w-4" /> Novo Cupom
+              </Button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {coupons.map(coupon => (
+                <div key={coupon.id} className="relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-black tracking-tighter text-primary">{coupon.code}</span>
+                        <Switch 
+                          checked={coupon.isActive} 
+                          onCheckedChange={() => handleToggleCoupon(coupon.id)}
+                          className="scale-75"
+                        />
+                      </div>
+                      <p className="text-sm font-medium">
+                        {coupon.type === "fixed" ? `R$ ${coupon.discountAmount} OFF` : `${coupon.discountAmount}% OFF`}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDeleteCoupon(coupon.id)}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center rounded-lg bg-muted px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
+                      Min: R$ {coupon.minOrderValue}
+                    </span>
+                    <span className="inline-flex items-center rounded-lg bg-muted px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
+                      Usos: {coupon.usageCount}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {coupons.length === 0 && (
+                <div className="col-span-full py-12 text-center border-2 border-dashed rounded-3xl">
+                  <Ticket className="h-10 w-10 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground">Nenhum cupom cadastrado.</p>
+                </div>
+              )}
+            </div>
+
+            <Dialog open={couponModalOpen} onOpenChange={setCouponModalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Cupom</DialogTitle>
+                  <DialogDescription>Crie um código de desconto para seus clientes.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Código do Cupom</Label>
+                    <Input 
+                      placeholder="EX: BEMVINDO10" 
+                      value={newCoupon.code} 
+                      onChange={e => setNewCoupon({...newCoupon, code: e.target.value.toUpperCase()})} 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Tipo</Label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={newCoupon.type}
+                        onChange={e => setNewCoupon({...newCoupon, type: e.target.value as any})}
+                      >
+                        <option value="fixed">Valor Fixo (R$)</option>
+                        <option value="percentage">Porcentagem (%)</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Valor do Desconto</Label>
+                      <Input 
+                        type="number" 
+                        value={newCoupon.discountAmount} 
+                        onChange={e => setNewCoupon({...newCoupon, discountAmount: parseFloat(e.target.value)})} 
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Valor Mínimo do Pedido (R$)</Label>
+                    <Input 
+                      type="number" 
+                      value={newCoupon.minOrderValue} 
+                      onChange={e => setNewCoupon({...newCoupon, minOrderValue: parseFloat(e.target.value)})} 
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCouponModalOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleCreateCoupon}>Criar Cupom</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
          </TabsContent>
 
         <TabsContent value="pagamentos" className="mt-6 space-y-6">
           <div className="rounded-2xl border p-6 bg-card shadow-sm">
-            <h3 className="text-lg font-bold mb-4">Mercado Pago (Pagamento Online)</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Mercado Pago (Pagamento Online)</h3>
+              {form.mercadoPagoAccessToken ? (
+                <span className="inline-flex items-center rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
+                  <Check className="mr-1 h-3.5 w-3.5" /> Conectado e Ativo
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                  Nao Conectado
+                </span>
+              )}
+            </div>
+            
             <p className="text-sm text-muted-foreground mb-6">Conecte sua conta para aceitar Cartão e PIX automático com liberação imediata.</p>
             
-            <div className="flex flex-col gap-4 max-w-md">
-               <Button className="bg-[#009EE3] hover:bg-[#0087c1] text-white font-bold h-12" onClick={() => window.open("https://www.mercadopago.com.br/", "_blank")}>
-                 <Globe className="mr-2 h-5 w-5" /> Conectar com Mercado Pago
-               </Button>
-               {/* Removido input de access token que confundia o lojista */}
-            </div>
+            {form.mercadoPagoAccessToken ? (
+              <div className="flex flex-col gap-4 max-w-md">
+                <div className="rounded-lg border border-success/30 bg-success/5 p-4 flex items-center justify-between">
+                   <div>
+                     <p className="font-semibold text-success">Integração Funcional</p>
+                     <p className="text-xs text-success/80">Sua loja já pode processar pagamentos online.</p>
+                   </div>
+                </div>
+                <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setForm({...form, mercadoPagoAccessToken: ""})}>
+                  Desconectar Conta
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 max-w-md">
+                 <Button className="bg-[#009EE3] hover:bg-[#0087c1] text-white font-bold h-12" onClick={() => window.open("https://www.mercadopago.com.br/settings/account/credentials", "_blank")}>
+                   <Globe className="mr-2 h-5 w-5" /> Gerar Chave no Mercado Pago
+                 </Button>
+                 
+                 <div className="mt-2 space-y-1.5">
+                   <Label className="text-xs font-bold text-muted-foreground uppercase">Cole a Chave de Produção (Access Token) Aqui</Label>
+                   <Input 
+                     type="password"
+                     value={form.mercadoPagoAccessToken} 
+                     onChange={e => setForm({...form, mercadoPagoAccessToken: e.target.value})} 
+                     placeholder="APP_USR-..." 
+                     className="bg-muted/30 font-mono text-sm"
+                   />
+                 </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border p-6 bg-card shadow-sm">
@@ -310,7 +599,7 @@ function SettingsPage() {
                           printWindow.document.write(`
                             <html>
                               <head><title>Imprimir QR - Mesa ${table.number}</title></head>
-                              <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
+                              <body style="display:flex;flex-direction:column;align-items:center;justify-center;height:100vh;font-family:sans-serif;">
                                 <h1 style="font-size:3rem;margin-bottom:1rem;">MESA ${table.number}</h1>
                                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`http://localhost:5174/store/mesa/${table.id}`)}" style="width:400px;height:400px;border: 4px solid black;padding: 10px;border-radius: 20px;" />
                                 <p style="margin-top:2rem;font-size:1.5rem;color:#666;text-align:center;">Escaneie o código<br/>para fazer seu pedido</p>

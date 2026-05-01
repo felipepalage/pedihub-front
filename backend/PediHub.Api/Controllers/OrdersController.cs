@@ -50,7 +50,9 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
                 x.Total,
                 x.OrderedAt.ToLocalTime().ToString("HH:mm"),
                 x.Status,
-                x.Payment))
+                x.Payment,
+                x.CouponCode,
+                x.CouponDiscount))
             .ToListAsync(cancellationToken);
 
         return Ok(orders);
@@ -88,7 +90,9 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Neighborhood,
             order.Complement,
             order.ReferencePoint,
-            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
+            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList(),
+            order.CouponCode,
+            order.CouponDiscount));
     }
 
     [HttpPatch("{id:guid}/status")]
@@ -131,7 +135,9 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Neighborhood,
             order.Complement,
             order.ReferencePoint,
-            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
+            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList(),
+            order.CouponCode,
+            order.CouponDiscount));
     }
 
     [HttpPost("{id:guid}/advance")]
@@ -176,6 +182,8 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Neighborhood,
             order.Complement,
             order.ReferencePoint,
-            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
+            order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList(),
+            order.CouponCode,
+            order.CouponDiscount));
     }
 }

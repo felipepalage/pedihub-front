@@ -4,10 +4,12 @@ import {
   getStoreInfo, 
   getStoreProducts, 
   placeStoreOrder,
+  validateCoupon,
   type StorePublic, 
   type StoreProduct, 
   type StoreCartItem,
-  type PlaceOrderPayload 
+  type PlaceOrderPayload,
+  type Coupon
 } from "@/lib/api";
 import { isValidPhone } from "@/lib/validators";
 import { 
@@ -27,7 +29,9 @@ import {
   Banknote,
   QrCode,
   Utensils,
-  ShoppingBasket
+  ShoppingBasket,
+  Ticket,
+  Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +58,14 @@ const fmt = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 function StorePage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
@@ -65,6 +77,9 @@ function StorePage() {
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
   const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -143,7 +158,38 @@ function StorePage() {
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
   const deliveryFee = formData.type === "delivery" ? (store?.deliveryFeeBase || 0) : 0;
-  const finalTotal = cartTotal + deliveryFee;
+  
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === "fixed") return appliedCoupon.discountAmount;
+    return (cartTotal * appliedCoupon.discountAmount) / 100;
+  }, [appliedCoupon, cartTotal]);
+
+  const finalTotal = Math.max(0, cartTotal + deliveryFee - discountAmount);
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    try {
+      const coupon = await validateCoupon(slug, couponInput);
+      if (cartTotal < coupon.minOrderValue) {
+        toast.error(`Pedido mínimo para este cupom é ${fmt.format(coupon.minOrderValue)}`);
+        return;
+      }
+      setAppliedCoupon(coupon);
+      toast.success("Cupom aplicado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Cupom inválido.");
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+  };
 
   const fetchAddress = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
@@ -190,9 +236,16 @@ function StorePage() {
       const payload: PlaceOrderPayload = {
         ...formData,
         changeFor: formData.payment === "dinheiro" ? Number(formData.changeFor) : undefined,
-        items: cart
+        items: cart,
+        couponCode: appliedCoupon?.code
       };
       const res = await placeStoreOrder(slug, payload);
+
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+
       setOrderSuccess(res.orderNumber);
       setCart([]);
       setCheckoutOpen(false);
@@ -241,7 +294,7 @@ function StorePage() {
       {/* Header / Banner */}
       <div className="relative h-48 w-full bg-muted lg:h-64">
         {store.bannerUrl ? (
-          <img src={store.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+          <img src={getImageUrl(store.bannerUrl)} alt="Banner" className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full bg-[#1F1F1F] flex items-center justify-center overflow-hidden">
             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
@@ -256,7 +309,7 @@ function StorePage() {
         <div className="relative -mt-16 flex flex-col gap-4 rounded-3xl border bg-card p-6 shadow-xl md:flex-row md:items-center">
           <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl border-4 border-card bg-white shadow-lg md:h-32 md:w-32 mx-auto md:mx-0">
             {store.logoUrl ? (
-              <img src={store.logoUrl} alt={store.companyName} className="h-full w-full object-contain p-2" />
+              <img src={getImageUrl(store.logoUrl)} alt={store.companyName} className="h-full w-full object-contain p-2" />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-primary text-4xl font-bold text-primary-foreground">
                 {store.companyName.charAt(0)}
@@ -306,8 +359,8 @@ function StorePage() {
                       onClick={() => addToCart(product)}
                     >
                       <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-muted shadow-inner">
-                        {product.image && product.image.length > 10 ? (
-                          <img src={product.image} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
+                        {product.image && product.image.length > 5 ? (
+                          <img src={getImageUrl(product.image)} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center opacity-20">
                             <Utensils className="h-10 w-10" />
@@ -368,10 +421,36 @@ function StorePage() {
                         <span className="text-muted-foreground">Subtotal</span>
                         <span>{fmt.format(cartTotal)}</span>
                       </div>
+                      {appliedCoupon && (
+                        <div className="flex justify-between text-sm text-green-600 font-medium">
+                          <span className="flex items-center gap-1"><Ticket className="h-3 w-3" /> Cupom ({appliedCoupon.code})</span>
+                          <span>-{fmt.format(discountAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between font-bold text-lg">
                         <span>Total</span>
-                        <span className="text-primary">{fmt.format(cartTotal)}</span>
+                        <span className="text-primary">{fmt.format(finalTotal)}</span>
                       </div>
+                      
+                      {!appliedCoupon ? (
+                        <div className="flex gap-2 mt-4">
+                          <Input 
+                            placeholder="Cupom de desconto" 
+                            value={couponInput} 
+                            onChange={e => setCouponInput(e.target.value)}
+                            className="h-9 text-xs"
+                          />
+                          <Button size="sm" variant="outline" onClick={handleApplyCoupon} disabled={couponLoading}>
+                            Aplicar
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between mt-4 rounded-xl bg-green-500/10 p-2 text-xs text-green-700">
+                          <span className="font-bold">Cupom aplicado!</span>
+                          <button onClick={removeCoupon} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                        </div>
+                      )}
+
                       <Button className="w-full mt-4" size="lg" onClick={() => setCheckoutOpen(true)}>Finalizar Pedido</Button>
                     </div>
                   </>
@@ -503,8 +582,20 @@ function StorePage() {
               <RadioGroup 
                 value={formData.payment} 
                 onValueChange={(v: any) => setFormData(p => ({ ...p, payment: v }))}
-                className="grid grid-cols-3 gap-2"
+                className={cn("grid gap-2", store.mercadoPagoActive ? "grid-cols-2" : "grid-cols-3")}
               >
+                {store.mercadoPagoActive && (
+                  <div className="col-span-2">
+                    <RadioGroupItem value="mercado_pago_online" id="p-mp" className="peer sr-only" />
+                    <Label htmlFor="p-mp" className="flex items-center justify-center gap-3 rounded-xl border-2 p-4 hover:bg-muted peer-data-[state=checked]:border-[#009EE3] peer-data-[state=checked]:bg-[#009EE3]/5 cursor-pointer transition-all">
+                      <Globe className="h-5 w-5 text-[#009EE3]" />
+                      <div className="text-left">
+                        <p className="text-sm font-bold">Pagar Online Agora</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-black">Cartão ou PIX via Mercado Pago</p>
+                      </div>
+                    </Label>
+                  </div>
+                )}
                 <div>
                   <RadioGroupItem value="pix" id="p-pix" className="peer sr-only" />
                   <Label htmlFor="p-pix" className="flex flex-col items-center gap-2 rounded-xl border p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer">
@@ -552,6 +643,12 @@ function StorePage() {
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Taxa de Entrega</span>
                   <span>{fmt.format(store.deliveryFeeBase)}</span>
+                </div>
+              )}
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm text-green-600 font-medium">
+                  <span>Desconto ({appliedCoupon.code})</span>
+                  <span>-{fmt.format(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t pt-2 font-bold text-lg">

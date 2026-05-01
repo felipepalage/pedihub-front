@@ -465,6 +465,16 @@ export function updateSettings(payload: SettingsPayload) {
   });
 }
 
+export function uploadMedia(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiRequest<{ url: string }>("/api/media/upload", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export function getIntegrations() {
   return apiRequest<Integration[]>("/api/integrations");
 }
@@ -479,6 +489,47 @@ export function disconnectIntegration(id: string) {
   return apiRequest<Integration>(`/api/integrations/${id}/disconnect`, {
     method: "POST",
   });
+}
+
+// Coupons
+
+export interface Coupon {
+  id: string;
+  code: string;
+  type: "fixed" | "percentage";
+  discountAmount: number;
+  minOrderValue: number;
+  isActive: boolean;
+  expiryDate?: string | null;
+  usageLimit?: number | null;
+  usageCount: number;
+}
+
+export function getCoupons() {
+  return apiRequest<Coupon[]>("/api/coupons");
+}
+
+export function createCoupon(payload: Partial<Coupon>) {
+  return apiRequest<Coupon>("/api/coupons", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCoupon(id: string) {
+  return apiRequest<void>(`/api/coupons/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function toggleCoupon(id: string) {
+  return apiRequest<Coupon>(`/api/coupons/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+export function validateCoupon(slug: string, code: string) {
+  return apiRequest<Coupon>(`/api/store/${slug}/coupons/${code}`);
 }
 
 // Admin & Subscriptions
@@ -537,7 +588,9 @@ export interface StorePublic {
   openingHours: string;
   deliveryFeeBase: number;
   minimumOrder: number;
+  pixKey: string;
   status: string;
+  mercadoPagoActive: boolean;
 }
 
 export interface StoreProduct {
@@ -560,7 +613,7 @@ export interface PlaceOrderPayload {
   customerName: string;
   customerPhone: string;
   type: "delivery" | "pickup";
-  payment: "pix" | "cartao" | "dinheiro";
+  payment: "pix" | "cartao" | "dinheiro" | "mercado_pago_online";
   changeFor?: number;
   zipCode?: string;
   street?: string;
@@ -571,6 +624,7 @@ export interface PlaceOrderPayload {
   complement?: string;
   referencePoint?: string;
   items: StoreCartItem[];
+  couponCode?: string;
 }
 
 export function getStoreInfo(slug: string) {
@@ -586,7 +640,7 @@ export function getStoreOrder(slug: string, orderNumber: number) {
 }
 
 export function placeStoreOrder(slug: string, payload: PlaceOrderPayload) {
-  return apiRequest<{ message: string; orderNumber: number }>(`/api/store/${slug}/orders`, {
+  return apiRequest<{ message: string; orderNumber: number; checkoutUrl?: string }>(`/api/store/${slug}/orders`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

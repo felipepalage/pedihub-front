@@ -22,11 +22,23 @@ const planStyles = {
   Enterprise: "bg-primary/10 text-primary",
 };
 
+import { useAuth } from "@/lib/auth";
+
 function CustomersPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  if (user?.role !== "SuperAdmin") {
+    return (
+      <div className="mx-auto max-w-[1400px] pt-16 text-center">
+        <h1 className="text-3xl font-bold text-destructive">Acesso Restrito</h1>
+        <p className="mt-4 text-muted-foreground">Esta página é exclusiva para os administradores da plataforma PEDIHUB.</p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

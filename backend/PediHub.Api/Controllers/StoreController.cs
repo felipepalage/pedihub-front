@@ -38,7 +38,8 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             merchant.DeliveryFeeBase,
             merchant.MinimumOrder,
             merchant.PixKey,
-            status
+            status,
+            !string.IsNullOrWhiteSpace(merchant.MercadoPagoAccessToken)
         );
 
         return Ok(dto);
@@ -72,6 +73,30 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(products);
+    }
+
+    [HttpGet("{slug}/coupons/{code}")]
+    public async Task<ActionResult<Coupon>> ValidateCoupon(string slug, string code, CancellationToken cancellationToken)
+    {
+        var merchant = await dbContext.Merchants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Slug == slug, cancellationToken);
+
+        if (merchant is null) return NotFound(new { message = "Loja não encontrada." });
+
+        var coupon = await dbContext.Coupons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.MerchantId == merchant.Id && x.Code == code.ToUpper().Trim() && x.IsActive, cancellationToken);
+
+        if (coupon is null) return NotFound(new { message = "Cupom inválido ou expirado." });
+
+        if (coupon.ExpiryDate.HasValue && coupon.ExpiryDate.Value < DateTimeOffset.UtcNow)
+            return BadRequest(new { message = "Este cupom expirou." });
+
+        if (coupon.UsageLimit.HasValue && coupon.UsageCount >= coupon.UsageLimit.Value)
+            return BadRequest(new { message = "Este cupom atingiu o limite de uso." });
+
+        return Ok(coupon);
     }
 
     [HttpPost("{slug}/orders")]
@@ -110,7 +135,38 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
         var nextNumber = (lastOrder?.Number ?? 0) + 1;
 
         var deliveryFee = request.Type == "delivery" ? merchant.DeliveryFeeBase : 0;
-        var total = totalItems + deliveryFee;
+        
+        decimal couponDiscount = 0;
+        if (!string.IsNullOrWhiteSpace(request.CouponCode))
+        {
+            var coupon = await dbContext.Coupons
+                .FirstOrDefaultAsync(x => x.MerchantId == merchant.Id && x.Code == request.CouponCode.ToUpper().Trim() && x.IsActive, cancellationToken);
+
+            if (coupon != null)
+            {
+                bool valid = true;
+                if (coupon.ExpiryDate.HasValue && coupon.ExpiryDate.Value < DateTimeOffset.UtcNow) valid = false;
+                if (coupon.UsageLimit.HasValue && coupon.UsageCount >= coupon.UsageLimit.Value) valid = false;
+                if (totalItems < coupon.MinOrderValue) valid = false;
+
+                if (valid)
+                {
+                    if (coupon.Type == "fixed")
+                    {
+                        couponDiscount = coupon.DiscountAmount;
+                    }
+                    else
+                    {
+                        couponDiscount = Math.Round(totalItems * (coupon.DiscountAmount / 100m), 2);
+                    }
+                    
+                    coupon.UsageCount++;
+                }
+            }
+        }
+
+        var total = totalItems + deliveryFee - couponDiscount;
+        if (total < 0) total = 0;
 
         var addressString = request.Type == "delivery" 
             ? $"{request.Street}, {request.AddressNumber} - {request.Neighborhood}, {request.City} - {request.State} (CEP: {request.ZipCode})"
@@ -135,7 +191,9 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             AddressNumber = request.AddressNumber ?? "",
             Neighborhood = request.Neighborhood ?? "",
             Complement = request.Complement ?? "",
-            ReferencePoint = request.ReferencePoint ?? ""
+            ReferencePoint = request.ReferencePoint ?? "",
+            CouponCode = request.CouponCode?.ToUpper().Trim(),
+            CouponDiscount = couponDiscount
         };
 
         foreach (var item in request.Items)
@@ -151,7 +209,61 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
         dbContext.Orders.Add(order);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { message = "Pedido realizado com sucesso!", orderNumber = order.Number });
+        string? checkoutUrl = null;
+
+        /*
+        if (request.Payment == "mercado_pago_online" && !string.IsNullOrWhiteSpace(merchant.MercadoPagoAccessToken))
+        {
+            try
+            {
+                MercadoPago.Config.MercadoPagoConfig.AccessToken = merchant.MercadoPagoAccessToken;
+                var client = new MercadoPago.Client.Preference.PreferenceClient();
+                var preferenceRequest = new MercadoPago.Client.Preference.PreferenceRequest
+                {
+                    Items = order.Items.Select(i => new MercadoPago.Client.Preference.PreferenceItemRequest
+                    {
+                        Title = i.Name,
+                        Quantity = i.Quantity,
+                        CurrencyId = "BRL",
+                        UnitPrice = i.UnitPrice
+                    }).ToList(),
+                    BackUrls = new MercadoPago.Client.Preference.PreferenceBackUrlsRequest
+                    {
+                        Success = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=success",
+                        Failure = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=failure",
+                        Pending = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=pending"
+                    },
+                    AutoReturn = "approved",
+                    ExternalReference = order.Id.ToString()
+                };
+
+                if (deliveryFee > 0)
+                {
+                    preferenceRequest.Items.Add(new MercadoPago.Client.Preference.PreferenceItemRequest
+                    {
+                        Title = "Taxa de Entrega",
+                        Quantity = 1,
+                        CurrencyId = "BRL",
+                        UnitPrice = deliveryFee
+                    });
+                }
+
+                var preference = await client.CreateAsync(preferenceRequest, cancellationToken: cancellationToken);
+                checkoutUrl = preference.InitPoint;
+            }
+            catch (Exception ex)
+            {
+                // Log and ignore to not fail the order completely, frontend handles fallback
+                Console.WriteLine($"Erro MercadoPago: {ex.Message}");
+            }
+        }
+        */
+
+        return Ok(new { 
+            message = "Pedido realizado com sucesso!", 
+            orderNumber = order.Number,
+            checkoutUrl = checkoutUrl
+        });
     }
 
     [HttpGet("orders/{orderNumber:int}")]
@@ -188,6 +300,8 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             order.Neighborhood,
             order.Complement,
             order.ReferencePoint,
-            order.Items.Select(i => new OrderItemDto(i.Name, i.Quantity, i.UnitPrice)).ToList()));
+            order.Items.Select(i => new OrderItemDto(i.Name, i.Quantity, i.UnitPrice)).ToList(),
+            order.CouponCode,
+            order.CouponDiscount));
     }
 }

@@ -41,6 +41,14 @@ const navItems: NavItem[] = [
   { to: "/app/configuracoes", label: "Configuracoes", icon: Settings },
 ];
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, logout } = useAuth();
@@ -49,7 +57,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-5 py-5">
         {user?.logoUrl ? (
-          <img src={user.logoUrl} alt={user.merchantName} className="h-8 max-w-[160px] object-contain" />
+          <img src={getImageUrl(user.logoUrl)} alt={user.merchantName} className="h-8 max-w-[160px] object-contain" />
         ) : (
           <Logo variant="light" />
         )}
@@ -71,7 +79,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         )}
 
         {navItems
-          .filter(item => item.to !== "/app/clientes" || user?.email === "fguilherme545@gmail.com")
+          .filter(item => item.to !== "/app/clientes" || user?.role === "SuperAdmin")
           .map((item) => {
           const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           const Icon = item.icon;

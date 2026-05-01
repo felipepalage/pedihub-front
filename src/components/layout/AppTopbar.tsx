@@ -15,6 +15,14 @@ import { Link } from "@tanstack/react-router";
 import { SidebarContent } from "./AppSidebar";
 import { useAuth } from "@/lib/auth";
 
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export function AppTopbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
@@ -88,7 +96,7 @@ export function AppTopbar() {
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1 transition-colors hover:bg-muted sm:pr-2">
             <Avatar className="h-8 w-8">
-              {user?.logoUrl ? <AvatarImage src={user.logoUrl} alt={companyName} /> : null}
+              {user?.logoUrl ? <AvatarImage src={getImageUrl(user.logoUrl)} alt={companyName} /> : null}
               <AvatarFallback className="bg-secondary text-xs font-bold text-secondary-foreground">
                 {initials}
               </AvatarFallback>

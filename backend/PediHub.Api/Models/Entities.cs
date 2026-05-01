@@ -114,6 +114,8 @@ public sealed class Order
     public string Neighborhood { get; set; } = string.Empty;
     public string Complement { get; set; } = string.Empty;
     public string ReferencePoint { get; set; } = string.Empty;
+    public string? CouponCode { get; set; }
+    public decimal CouponDiscount { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -164,11 +166,12 @@ public class OrderItemModifier
 
 public class Coupon
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MerchantId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Type { get; set; } = "fixed"; // fixed or percentage
     public decimal DiscountAmount { get; set; }
+    public decimal MinOrderValue { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? ExpiryDate { get; set; }
     public int? UsageLimit { get; set; }

@@ -58,7 +58,9 @@ public sealed record OrderListItemDto(
     decimal Total,
     string Time,
     string Status,
-    string Payment);
+    string Payment,
+    string? CouponCode = null,
+    decimal CouponDiscount = 0);
 
 public sealed record OrderDetailDto(
     Guid Id,
@@ -78,7 +80,9 @@ public sealed record OrderDetailDto(
     string Neighborhood,
     string Complement,
     string ReferencePoint,
-    IReadOnlyList<OrderItemDto> Items);
+    IReadOnlyList<OrderItemDto> Items,
+    string? CouponCode = null,
+    decimal CouponDiscount = 0);
 
 public sealed record DashboardSummaryDto(
     string MerchantName,
@@ -234,7 +238,8 @@ public sealed record StorePublicDto(
     decimal DeliveryFeeBase,
     decimal MinimumOrder,
     string PixKey,
-    string Status);
+    string Status,
+    bool MercadoPagoActive);
 
 public sealed record StoreProductDto(
     Guid Id,
@@ -264,4 +269,5 @@ public sealed record PlaceOrderRequest(
     string State,
     string Complement,
     string ReferencePoint,
-    IReadOnlyList<StoreCartItem> Items);
+    IReadOnlyList<StoreCartItem> Items,
+    string? CouponCode = null);

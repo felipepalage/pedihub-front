@@ -98,6 +98,8 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
             entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
             entity.Property(x => x.Payment).HasMaxLength(30).IsRequired();
             entity.Property(x => x.Address).HasMaxLength(240);
+            entity.Property(x => x.CouponCode).HasMaxLength(30);
+            entity.Property(x => x.CouponDiscount).HasPrecision(18, 2);
             entity.HasIndex(x => new { x.MerchantId, x.Number }).IsUnique();
             entity.HasOne(x => x.Merchant)
                 .WithMany(x => x.Orders)
@@ -202,6 +204,7 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
             entity.Property(x => x.Code).HasMaxLength(30).IsRequired();
             entity.Property(x => x.Type).HasMaxLength(20).IsRequired();
             entity.Property(x => x.DiscountAmount).HasPrecision(18, 2);
+            entity.Property(x => x.MinOrderValue).HasPrecision(18, 2);
             entity.HasIndex(x => new { x.MerchantId, x.Code }).IsUnique();
             entity.HasOne<Merchant>()
                 .WithMany()

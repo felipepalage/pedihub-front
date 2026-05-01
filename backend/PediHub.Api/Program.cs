@@ -83,7 +83,7 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
-    ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"];
+    ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176"];
 
 builder.Services.AddCors(options =>
 {
@@ -104,6 +104,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
