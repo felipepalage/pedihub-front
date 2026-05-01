@@ -78,12 +78,11 @@ function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Senha</Label>
-                  <span className="text-xs font-medium text-muted-foreground">JWT + SQL Server</span>
                 </div>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Sua senha"
+                  placeholder="Senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

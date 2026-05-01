@@ -12,14 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
+import { Route as AppPlanoRouteImport } from './routes/app.plano'
 import { Route as AppPedidosRouteImport } from './routes/app.pedidos'
 import { Route as AppIntegracoesRouteImport } from './routes/app.integracoes'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
 import { Route as AppCatalogoRouteImport } from './routes/app.catalogo'
+import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as SlugOrderOrderNumberRouteImport } from './routes/$slug.order.$orderNumber'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -36,6 +40,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SlugRoute = SlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +58,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlanoRoute = AppPlanoRouteImport.update({
+  id: '/plano',
+  path: '/plano',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPedidosRoute = AppPedidosRouteImport.update({
@@ -76,89 +90,124 @@ const AppCatalogoRoute = AppCatalogoRouteImport.update({
   path: '/catalogo',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const SlugOrderOrderNumberRoute = SlugOrderOrderNumberRouteImport.update({
+  id: '/order/$orderNumber',
+  path: '/order/$orderNumber',
+  getParentRoute: () => SlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
+  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
+  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
+  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app': typeof AppIndexRoute
+  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/app/admin': typeof AppAdminRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
+  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
+  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$slug'
     | '/app'
     | '/cadastro'
     | '/login'
+    | '/app/admin'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
+    | '/app/plano'
     | '/app/relatorios'
     | '/app/'
+    | '/$slug/order/$orderNumber'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$slug'
     | '/cadastro'
     | '/login'
+    | '/app/admin'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
+    | '/app/plano'
     | '/app/relatorios'
     | '/app'
+    | '/$slug/order/$orderNumber'
   id:
     | '__root__'
     | '/'
+    | '/$slug'
     | '/app'
     | '/cadastro'
     | '/login'
+    | '/app/admin'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
+    | '/app/plano'
     | '/app/relatorios'
     | '/app/'
+    | '/$slug/order/$orderNumber'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SlugRoute: typeof SlugRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
@@ -187,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$slug': {
+      id: '/$slug'
+      path: '/$slug'
+      fullPath: '/$slug'
+      preLoaderRoute: typeof SlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -206,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/relatorios'
       fullPath: '/app/relatorios'
       preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/plano': {
+      id: '/app/plano'
+      path: '/plano'
+      fullPath: '/app/plano'
+      preLoaderRoute: typeof AppPlanoRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/pedidos': {
@@ -243,25 +306,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCatalogoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/$slug/order/$orderNumber': {
+      id: '/$slug/order/$orderNumber'
+      path: '/order/$orderNumber'
+      fullPath: '/$slug/order/$orderNumber'
+      preLoaderRoute: typeof SlugOrderOrderNumberRouteImport
+      parentRoute: typeof SlugRoute
+    }
   }
 }
 
+interface SlugRouteChildren {
+  SlugOrderOrderNumberRoute: typeof SlugOrderOrderNumberRoute
+}
+
+const SlugRouteChildren: SlugRouteChildren = {
+  SlugOrderOrderNumberRoute: SlugOrderOrderNumberRoute,
+}
+
+const SlugRouteWithChildren = SlugRoute._addFileChildren(SlugRouteChildren)
+
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppClientesRoute: typeof AppClientesRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppPedidosRoute: typeof AppPedidosRoute
+  AppPlanoRoute: typeof AppPlanoRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppCatalogoRoute: AppCatalogoRoute,
   AppClientesRoute: AppClientesRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppPedidosRoute: AppPedidosRoute,
+  AppPlanoRoute: AppPlanoRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppIndexRoute: AppIndexRoute,
 }
@@ -270,6 +361,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SlugRoute: SlugRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,

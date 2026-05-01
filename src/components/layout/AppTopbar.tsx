@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "@tanstack/react-router";
@@ -70,17 +70,25 @@ export function AppTopbar() {
           <Search className="h-[18px] w-[18px]" />
         </button>
 
-        <button
-          aria-label="Notificacoes"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              aria-label="Notificacoes"
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 p-4 text-center">
+            <p className="text-sm font-medium text-muted-foreground">Nenhuma notificacao no momento.</p>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1 transition-colors hover:bg-muted sm:pr-2">
             <Avatar className="h-8 w-8">
+              {user?.logoUrl ? <AvatarImage src={user.logoUrl} alt={companyName} /> : null}
               <AvatarFallback className="bg-secondary text-xs font-bold text-secondary-foreground">
                 {initials}
               </AvatarFallback>

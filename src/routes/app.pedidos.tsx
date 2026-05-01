@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Printer, MoreHorizontal, Filter } from "lucide-react";
+import { Eye, Printer, MoreHorizontal, Filter, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/orders/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,11 @@ import {
   type OrderListItem,
   type OrderStatus,
 } from "@/lib/api";
+import { 
+  formatOrderToWhatsApp, 
+  generateWhatsAppLink, 
+  formatStatusUpdateToWhatsApp 
+} from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/app/pedidos")({
   component: OrdersPage,
@@ -42,9 +47,10 @@ const fmt = new Intl.NumberFormat("pt-BR", {
 const filters = [
   { id: "todos", label: "Todos" },
   { id: "hoje", label: "Hoje" },
-  { id: "pendentes", label: "Pendentes" },
+  { id: "pendentes", label: "Pendentes (Novos)" },
+  { id: "preparando", label: "Em Preparo" },
+  { id: "saiu_entrega", label: "Em Entrega" },
   { id: "finalizados", label: "Finalizados" },
-  { id: "cancelados", label: "Cancelados" },
 ] as const;
 
 function OrdersPage() {
@@ -56,14 +62,56 @@ function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState("");
+  const [lastOrderNumber, setLastOrderNumber] = useState<number | null>(null);
 
-  const loadOrders = () => {
-    setLoading(true);
+  const notificationSound = useMemo(() => {
+    const audio = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_7322987a07.mp3");
+    audio.volume = 1.0;
+    return audio;
+  }, []);
+
+  // Request audio permission if needed
+  useEffect(() => {
+    const unlock = () => {
+      notificationSound.play().then(() => {
+        notificationSound.pause();
+        notificationSound.currentTime = 0;
+      }).catch(() => {});
+      document.removeEventListener("click", unlock);
+    };
+    document.addEventListener("click", unlock);
+  }, [notificationSound]);
+
+  const loadOrders = (isAutoRefresh = false) => {
+    if (!isAutoRefresh) setLoading(true);
     getOrders({ filter, search })
-      .then(setOrders)
-      .catch((err) => setError(err instanceof Error ? err.message : "Nao foi possivel carregar os pedidos."))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (data.length > 0) {
+          const newestOrder = data[0];
+          if (lastOrderNumber !== null && newestOrder.number > lastOrderNumber && newestOrder.status === "novo") {
+            notificationSound.play().catch(e => console.log("Erro ao tocar som:", e));
+            toast.info(`Novo pedido recebido! #${newestOrder.number}`, {
+              duration: 5000,
+              description: newestOrder.customer
+            });
+          }
+          setLastOrderNumber(newestOrder.number);
+        }
+        setOrders(data);
+      })
+      .catch((err) => {
+        if (!isAutoRefresh) setError(err instanceof Error ? err.message : "Nao foi possivel carregar os pedidos.");
+      })
+      .finally(() => {
+        if (!isAutoRefresh) setLoading(false);
+      });
   };
+
+  // Auto refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => loadOrders(true), 30000);
+    return () => clearInterval(interval);
+  }, [filter, search, lastOrderNumber]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => loadOrders(), 200);
@@ -109,6 +157,26 @@ function OrdersPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Nao foi possivel avancar o status.");
     }
+  };
+
+  const handleWhatsApp = (order: OrderDetail) => {
+    if (!order.customerPhone) {
+      toast.error("O cliente nao possui numero de WhatsApp cadastrado.");
+      return;
+    }
+    const text = formatOrderToWhatsApp(order);
+    const link = generateWhatsAppLink(order.customerPhone, text);
+    window.open(link, "_blank");
+  };
+
+  const handleStatusWhatsApp = (order: OrderDetail) => {
+    if (!order.customerPhone) {
+      toast.error("O cliente nao possui numero de WhatsApp cadastrado.");
+      return;
+    }
+    const text = formatStatusUpdateToWhatsApp(order);
+    const link = generateWhatsAppLink(order.customerPhone, text);
+    window.open(link, "_blank");
   };
 
   const activeOrder = useMemo(
@@ -292,9 +360,23 @@ function OrdersPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => printOrder(selected)}>
-                    Imprimir
+                    Imprimir Comanda
                   </Button>
-                  <Button onClick={onAdvance}>Avancar status</Button>
+                  <Button variant="secondary" onClick={() => handleWhatsApp(selected)}>
+                    Enviar Resumo
+                  </Button>
+                  <Button variant="outline" className="col-span-2" onClick={() => handleStatusWhatsApp(selected)}>
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Notificar Status (WhatsApp)
+                  </Button>
+                  <Button className="col-span-2 h-12 text-lg" onClick={onAdvance}>
+                    Avancar para: {
+                      selected.status === "novo" ? "Aceitar Pedido" :
+                      selected.status === "aceito" ? "Iniciar Preparo" :
+                      selected.status === "preparando" ? "Despachar Entrega" :
+                      selected.status === "saiu_entrega" ? "Finalizar Pedido" : "Concluido"
+                    }
+                  </Button>
                 </div>
               </div>
             </>
@@ -316,19 +398,54 @@ function printOrder(order: Pick<OrderListItem, "number" | "customer" | "total" |
       <head>
         <title>Pedido #${order.number}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-          h1 { margin-bottom: 8px; }
-          p { margin: 6px 0; }
+          @page { margin: 0; }
+          body { font-family: 'Courier New', Courier, monospace; width: 80mm; padding: 10mm; font-size: 12px; color: #000; position: relative; }
+          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 40px; color: rgba(0,0,0,0.05); font-weight: 900; z-index: -1; white-space: nowrap; }
+          .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+          .section { margin-bottom: 10px; }
+          .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin-bottom: 4px; text-transform: uppercase; font-size: 10px; }
+          .item { display: flex; justify-content: space-between; font-weight: bold; }
+          .total { border-top: 2px solid #000; padding-top: 5px; margin-top: 5px; font-weight: 900; font-size: 16px; display: flex; justify-content: space-between; }
+          .footer { text-align: center; margin-top: 20px; font-size: 10px; opacity: 0.6; }
+          .address { border: 1px solid #000; padding: 5px; margin-top: 10px; }
         </style>
       </head>
       <body>
-        <h1>Pedido #${order.number}</h1>
-        <p><strong>Cliente:</strong> ${order.customer}</p>
-        <p><strong>Canal:</strong> ${channelLabels[order.channel]}</p>
-        <p><strong>Horario:</strong> ${order.time}</p>
-        <p><strong>Status:</strong> ${statusLabels[order.status]}</p>
-        <p><strong>Pagamento:</strong> ${paymentLabels[order.payment]}</p>
-        <p><strong>Total:</strong> ${fmt.format(order.total)}</p>
+        <div class="watermark">PEDIHUB DELIVERY</div>
+        <div class="header">
+          <h1 style="margin:0; font-size: 24px;">#${order.number}</h1>
+          <p style="margin:0; font-weight: bold;">${order.customer.split(' ')[0]}</p>
+          <p style="margin:0; font-size: 10px;">${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Itens do Pedido</div>
+          ${('items' in order ? order.items : []).map(item => `
+            <div class="item">
+              <span>${item.qty}x ${item.name}</span>
+              <span>${(item.qty * item.price).toFixed(2)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="section">
+          <div class="total">
+            <span>TOTAL</span>
+            <span>R$ ${order.total.toFixed(2)}</span>
+          </div>
+          <p style="text-align: right; margin: 0; font-size: 10px;">Pagamento: ${paymentLabels[order.payment as any] || order.payment}</p>
+        </div>
+
+        <div class="address">
+          <div class="section-title">Endereco de Entrega</div>
+          <p style="margin:0;">${('address' in order ? order.address : 'N/A')}</p>
+          <p style="margin:5px 0 0 0; font-weight: bold;">Tel: ${('customerPhone' in order ? order.customerPhone : 'N/A')}</p>
+        </div>
+
+        <div class="footer">
+          Obrigado pela preferencia!<br>
+          <b>Powered by PediHub Digital</b>
+        </div>
       </body>
     </html>
   `);

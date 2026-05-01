@@ -8,10 +8,12 @@ import {
   Users,
   Settings,
   LogOut,
+  Crown,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { ShieldAlert } from "lucide-react";
 
 type NavItem = {
   to:
@@ -21,6 +23,7 @@ type NavItem = {
     | "/app/integracoes"
     | "/app/relatorios"
     | "/app/clientes"
+    | "/app/plano"
     | "/app/configuracoes";
   label: string;
   icon: typeof LayoutDashboard;
@@ -34,21 +37,42 @@ const navItems: NavItem[] = [
   { to: "/app/integracoes", label: "Integracoes", icon: Plug },
   { to: "/app/relatorios", label: "Relatorios", icon: BarChart3 },
   { to: "/app/clientes", label: "Clientes", icon: Users },
+  { to: "/app/plano", label: "Seu plano", icon: Crown },
   { to: "/app/configuracoes", label: "Configuracoes", icon: Settings },
 ];
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-5 py-5">
-        <Logo variant="light" />
+        {user?.logoUrl ? (
+          <img src={user.logoUrl} alt={user.merchantName} className="h-8 max-w-[160px] object-contain" />
+        ) : (
+          <Logo variant="light" />
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {navItems.map((item) => {
+        {user?.role === "SuperAdmin" && (
+          <Link
+            to="/app/admin"
+            onClick={onNavigate}
+            className={cn(
+              "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mb-2 bg-purple-500/10 text-purple-600 hover:bg-purple-500/20",
+              pathname.startsWith("/app/admin") && "bg-purple-600 text-white hover:bg-purple-700 hover:text-white shadow-sm"
+            )}
+          >
+            <ShieldAlert className="h-[18px] w-[18px]" />
+            Administrador
+          </Link>
+        )}
+
+        {navItems
+          .filter(item => item.to !== "/app/clientes" || user?.email === "fguilherme545@gmail.com")
+          .map((item) => {
           const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           const Icon = item.icon;
 

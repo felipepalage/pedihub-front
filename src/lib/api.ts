@@ -18,7 +18,9 @@ export interface AuthUser {
   email: string;
   merchantName: string;
   plan: string;
-  status: string;
+  logoUrl?: string | null;
+  role: string;
+  validUntil: string;
 }
 
 export interface AuthResponse {
@@ -101,6 +103,14 @@ export interface OrderListItem {
 
 export interface OrderDetail extends OrderListItem {
   address?: string | null;
+  customerPhone: string;
+  deliveryFee: number;
+  changeFor: number | null;
+  street: string;
+  addressNumber: string;
+  neighborhood: string;
+  complement: string;
+  referencePoint: string;
   items: OrderItem[];
 }
 
@@ -115,25 +125,43 @@ export interface DashboardSummary {
   recentOrders: OrderListItem[];
 }
 
+export interface ModifierOption {
+  id?: string;
+  name: string;
+  price: number;
+}
+
+export interface ModifierGroup {
+  id?: string;
+  name: string;
+  minQuantity: number;
+  maxQuantity: number;
+  options: ModifierOption[];
+}
+
 export interface Product {
   id: string;
   image: string;
   name: string;
+  description: string;
   category: string;
   price: number;
   available: boolean;
   stock: number;
   promo: boolean;
+  modifierGroups?: ModifierGroup[];
 }
 
 export interface ProductPayload {
   image: string;
   name: string;
+  description: string;
   category: string;
   price: number;
   available: boolean;
   stock: number;
   promo: boolean;
+  modifierGroups?: ModifierGroup[];
 }
 
 export interface CustomerSummary {
@@ -188,6 +216,7 @@ export interface SettingsPayload {
   primaryColor: string;
   logoUrl: string;
   bannerUrl: string;
+  whatsAppNumber: string;
 }
 
 export type Settings = SettingsPayload;
@@ -224,39 +253,45 @@ async function apiRequest<T>(path: string, init?: RequestInit, expectBlob = fals
     headers.set("Authorization", `Bearer ${session.token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers,
+    });
 
-  if (!response.ok) {
-    const contentType = response.headers.get("content-type") ?? "";
-    let message = "Nao foi possivel concluir a requisicao.";
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+      let message = "Nao foi possivel concluir a requisicao.";
 
-    if (contentType.includes("application/json")) {
-      const body = (await response.json()) as { message?: string };
-      if (body.message) {
-        message = body.message;
+      if (contentType.includes("application/json")) {
+        const body = (await response.json()) as { message?: string };
+        if (body.message) {
+          message = body.message;
+        }
+      } else {
+        const text = await response.text();
+        if (text) {
+          message = text;
+        }
       }
-    } else {
-      const text = await response.text();
-      if (text) {
-        message = text;
-      }
+
+      throw new ApiError(message, response.status);
     }
 
-    throw new ApiError(message, response.status);
-  }
+    if (expectBlob) {
+      return (await response.blob()) as T;
+    }
 
-  if (expectBlob) {
-    return (await response.blob()) as T;
-  }
+    if (response.status === 204) {
+      return undefined as T;
+    }
 
-  if (response.status === 204) {
-    return undefined as T;
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.error(`API Request Error [${path}]:`, error);
+    throw new ApiError("Erro de conexao com o servidor.", 503);
   }
-
-  return (await response.json()) as T;
 }
 
 function toQueryString(params: Record<string, string | undefined>) {
@@ -288,8 +323,66 @@ export function getMe() {
   return apiRequest<AuthUser>("/api/auth/me");
 }
 
+export interface TopProductMetric {
+  name: string;
+  totalSold: number;
+  totalRevenue: number;
+}
+
+export interface AnalyticsSummary {
+  totalRevenue: number;
+  todayOrders: number;
+  topProducts: TopProductMetric[];
+}
+
 export function getDashboard() {
   return apiRequest<DashboardSummary>("/api/dashboard");
+}
+
+export function getAnalyticsSummary() {
+  return apiRequest<AnalyticsSummary>("/api/analytics/summary");
+}
+
+export interface LoyaltyProgram {
+  id?: string;
+  isActive: boolean;
+  pointsPerReal: number;
+  minPointsToRedeem: number;
+  redeemValue: number;
+}
+
+export interface MerchantTable {
+  id?: string;
+  number: string;
+  qrCodeUrl: string;
+}
+
+export function getLoyaltyProgram() {
+  return apiRequest<LoyaltyProgram>("/api/loyalty/program");
+}
+
+export function updateLoyaltyProgram(payload: LoyaltyProgram) {
+  return apiRequest<LoyaltyProgram>("/api/loyalty/program", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getTables() {
+  return apiRequest<MerchantTable[]>("/api/tables");
+}
+
+export function createTable(number: string) {
+  return apiRequest<MerchantTable>("/api/tables", {
+    method: "POST",
+    body: JSON.stringify({ number }),
+  });
+}
+
+export function deleteTable(id: string) {
+  return apiRequest<void>(`/api/tables/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export function getOrders(params?: { filter?: string; search?: string }) {
@@ -387,3 +480,116 @@ export function disconnectIntegration(id: string) {
     method: "POST",
   });
 }
+
+// Admin & Subscriptions
+
+export interface AdminMerchant {
+  id: string;
+  companyName: string;
+  cnpj: string;
+  plan: string;
+  status: string;
+  createdAt: string;
+  validUntil: string;
+}
+
+export interface ActivationToken {
+  id: string;
+  code: string;
+  months: number;
+  isUsed: boolean;
+  createdAt: string;
+  usedAt?: string | null;
+}
+
+export function activateSubscription(code: string) {
+  return apiRequest<{ message: string; validUntil: string }>("/api/subscription/activate", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function getAdminMerchants() {
+  return apiRequest<AdminMerchant[]>("/api/admin/merchants");
+}
+
+export function getAdminTokens() {
+  return apiRequest<ActivationToken[]>("/api/admin/tokens");
+}
+
+export function createAdminToken(months: number) {
+  return apiRequest<ActivationToken>("/api/admin/tokens", {
+    method: "POST",
+    body: JSON.stringify({ months }),
+  });
+}
+
+// Store (Customer Facing)
+
+export interface StorePublic {
+  id: string;
+  companyName: string;
+  slug: string;
+  logoUrl: string;
+  bannerUrl: string;
+  primaryColor: string;
+  phone: string;
+  openingHours: string;
+  deliveryFeeBase: number;
+  minimumOrder: number;
+  status: string;
+}
+
+export interface StoreProduct {
+  id: string;
+  image: string;
+  name: string;
+  description: string;
+  price: number;
+  promo: boolean;
+}
+
+export interface StoreCartItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface PlaceOrderPayload {
+  customerName: string;
+  customerPhone: string;
+  type: "delivery" | "pickup";
+  payment: "pix" | "cartao" | "dinheiro";
+  changeFor?: number;
+  zipCode?: string;
+  street?: string;
+  addressNumber?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  complement?: string;
+  referencePoint?: string;
+  items: StoreCartItem[];
+}
+
+export function getStoreInfo(slug: string) {
+  return apiRequest<StorePublic>(`/api/store/${slug}`);
+}
+
+export function getStoreProducts(slug: string) {
+  return apiRequest<StoreProduct[]>(`/api/store/${slug}/products`);
+}
+
+export function getStoreOrder(slug: string, orderNumber: number) {
+  return apiRequest<OrderDetail>(`/api/store/${slug}/orders/${orderNumber}`);
+}
+
+export function placeStoreOrder(slug: string, payload: PlaceOrderPayload) {
+  return apiRequest<{ message: string; orderNumber: number }>(`/api/store/${slug}/orders`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+

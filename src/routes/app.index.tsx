@@ -27,7 +27,7 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { StatusBadge } from "@/components/orders/StatusBadge";
 import { channelLabels } from "@/lib/domain";
-import { getDashboard, type DashboardSummary } from "@/lib/api";
+import { getDashboard, getAnalyticsSummary, type DashboardSummary, type AnalyticsSummary } from "@/lib/api";
 
 export const Route = createFileRoute("/app/")({
   component: DashboardPage,
@@ -46,12 +46,16 @@ const alertStyles = {
 
 function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getDashboard()
-      .then(setData)
+    Promise.all([getDashboard(), getAnalyticsSummary()])
+      .then(([dashboardData, analyticsData]) => {
+        setData(dashboardData);
+        setAnalytics(analyticsData);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Nao foi possivel carregar o dashboard."))
       .finally(() => setLoading(false));
   }, []);
@@ -224,22 +228,25 @@ function DashboardPage() {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-          <h3 className="mb-3 font-semibold">Alertas operacionais</h3>
-          {data.alerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum alerta no momento.</p>
+          <h3 className="mb-3 font-semibold">Produtos mais vendidos</h3>
+          {analytics?.topProducts && analytics.topProducts.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={analytics.topProducts} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" stroke="var(--color-muted-foreground)" fontSize={11} width={80} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                  }}
+                />
+                <Bar dataKey="totalSold" fill="var(--color-primary)" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
-            <ul className="space-y-3">
-              {data.alerts.map((alert, index) => (
-                <li key={`${alert.text}-${index}`} className="flex items-start gap-3">
-                  <span
-                    className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${alertStyles[alert.severity]}`}
-                  >
-                    <AlertTriangle className="h-4 w-4" />
-                  </span>
-                  <p className="text-sm">{alert.text}</p>
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-muted-foreground">Dados insuficientes.</p>
           )}
         </div>
       </div>

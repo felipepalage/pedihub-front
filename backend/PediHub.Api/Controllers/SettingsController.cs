@@ -45,6 +45,9 @@ public sealed class SettingsController(PediHubDbContext dbContext) : ControllerB
         merchant.PrimaryColor = request.PrimaryColor.Trim();
         merchant.LogoUrl = request.LogoUrl.Trim();
         merchant.BannerUrl = request.BannerUrl.Trim();
+        merchant.PixKey = request.PixKey.Trim();
+        merchant.MercadoPagoAccessToken = request.MercadoPagoAccessToken.Trim();
+        merchant.WhatsAppNumber = request.WhatsAppNumber.Trim();
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return Ok(Map(merchant));
@@ -70,6 +73,9 @@ public sealed class SettingsController(PediHubDbContext dbContext) : ControllerB
             merchant.AutoAcceptOrders,
             merchant.PrimaryColor,
             merchant.LogoUrl,
-            merchant.BannerUrl);
+            merchant.BannerUrl,
+            merchant.PixKey,
+            merchant.MercadoPagoAccessToken,
+            merchant.WhatsAppNumber);
     }
 }

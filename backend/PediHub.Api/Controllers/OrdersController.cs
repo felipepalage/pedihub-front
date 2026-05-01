@@ -80,6 +80,14 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Status,
             order.Payment,
             order.Address,
+            order.CustomerPhone,
+            order.DeliveryFee,
+            order.ChangeFor,
+            order.Street,
+            order.AddressNumber,
+            order.Neighborhood,
+            order.Complement,
+            order.ReferencePoint,
             order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
     }
 
@@ -115,6 +123,14 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Status,
             order.Payment,
             order.Address,
+            order.CustomerPhone,
+            order.DeliveryFee,
+            order.ChangeFor,
+            order.Street,
+            order.AddressNumber,
+            order.Neighborhood,
+            order.Complement,
+            order.ReferencePoint,
             order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
     }
 
@@ -152,6 +168,14 @@ public sealed class OrdersController(PediHubDbContext dbContext) : ControllerBas
             order.Status,
             order.Payment,
             order.Address,
+            order.CustomerPhone,
+            order.DeliveryFee,
+            order.ChangeFor,
+            order.Street,
+            order.AddressNumber,
+            order.Neighborhood,
+            order.Complement,
+            order.ReferencePoint,
             order.Items.Select(item => new OrderItemDto(item.Name, item.Quantity, item.UnitPrice)).ToList()));
     }
 }

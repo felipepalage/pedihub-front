@@ -28,12 +28,21 @@ public sealed class AuthController(
 
         if (await dbContext.Merchants.AnyAsync(x => x.Cnpj == cnpj, cancellationToken))
         {
-            return Conflict(new { message = "Ja existe uma empresa com este CNPJ." });
+            return Conflict(new { message = "Ja existe uma empresa com este CPF/CNPJ." });
+        }
+
+        var baseSlug = GenerateSlug(request.CompanyName);
+        var slug = baseSlug;
+        var slugCounter = 1;
+        while (await dbContext.Merchants.AnyAsync(x => x.Slug == slug, cancellationToken))
+        {
+            slug = $"{baseSlug}-{slugCounter++}";
         }
 
         var merchant = new Merchant
         {
             CompanyName = request.CompanyName.Trim(),
+            Slug = slug,
             Cnpj = cnpj,
             Plan = "Starter",
             Status = "trial",
@@ -47,6 +56,7 @@ public sealed class AuthController(
             City = request.City.Trim(),
             State = request.State.Trim().ToUpperInvariant(),
             ZipCode = request.ZipCode.Trim(),
+            ValidUntil = DateTimeOffset.UtcNow.AddDays(7),
         };
 
         var user = new User
@@ -56,7 +66,7 @@ public sealed class AuthController(
             Email = email,
             Phone = request.Phone.Trim(),
             PasswordHash = passwordService.Hash(request.Password),
-            Role = "Owner",
+            Role = email == "fguilherme545@gmail.com" ? "SuperAdmin" : "Owner",
             LastLoginAt = DateTimeOffset.UtcNow,
         };
 
@@ -117,6 +127,32 @@ public sealed class AuthController(
 
     private static AuthUserDto ToUserDto(User user, Merchant merchant)
     {
-        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status);
+        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status, merchant.LogoUrl, user.Role, merchant.ValidUntil);
+    }
+
+    private static string RemoveDiacritics(string text) 
+    {
+        var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
+        var stringBuilder = new System.Text.StringBuilder(capacity: normalizedString.Length);
+
+        for (int i = 0; i < normalizedString.Length; i++)
+        {
+            char c = normalizedString[i];
+            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    private static string GenerateSlug(string name)
+    {
+        var slug = RemoveDiacritics(name).ToLowerInvariant();
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\s+", "-").Trim('-');
+        return slug;
     }
 }

@@ -7,7 +7,7 @@ using PediHub.Api.Data;
 namespace PediHub.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Roles = "SuperAdmin")]
 [Route("api/[controller]")]
 public sealed class CustomersController(PediHubDbContext dbContext) : ControllerBase
 {

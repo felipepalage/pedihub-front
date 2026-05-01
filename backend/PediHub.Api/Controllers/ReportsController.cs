@@ -63,7 +63,7 @@ public sealed class ReportsController(PediHubDbContext dbContext) : ControllerBa
             .SelectMany(x => x.Items)
             .GroupBy(x => x.Name)
             .Select(group => new TopProductDto(group.Key, group.Sum(x => x.Quantity), group.Sum(x => x.Quantity * x.UnitPrice)))
-            .OrderByDescending(x => x.Sold)
+            .OrderByDescending(x => x.TotalSold)
             .Take(10)
             .ToList();
 

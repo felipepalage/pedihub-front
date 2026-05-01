@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Plus, Pencil, Copy, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Search, PlusCircle, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -38,21 +38,35 @@ const fmt = new Intl.NumberFormat("pt-BR", {
 type ProductFormState = {
   image: string;
   name: string;
+  description: string;
   category: string;
   price: string;
   available: boolean;
   stock: string;
   promo: boolean;
+  modifierGroups: {
+    id?: string;
+    name: string;
+    minQuantity: number;
+    maxQuantity: number;
+    options: {
+      id?: string;
+      name: string;
+      price: number;
+    }[];
+  }[];
 };
 
 const emptyForm: ProductFormState = {
   image: "🍽️",
   name: "",
+  description: "",
   category: "",
   price: "0",
   available: true,
   stock: "0",
   promo: false,
+  modifierGroups: [],
 };
 
 function CatalogPage() {
@@ -107,48 +121,106 @@ function CatalogPage() {
     setForm({
       image: product.image,
       name: product.name,
+      description: product.description || "",
       category: product.category,
       price: String(product.price),
       available: product.available,
       stock: String(product.stock),
       promo: product.promo,
+      modifierGroups: product.modifierGroups || [],
     });
     setDialogOpen(true);
+  };
+
+  const addModifierGroup = () => {
+    setForm(prev => ({
+      ...prev,
+      modifierGroups: [
+        ...prev.modifierGroups,
+        { name: "Novo Grupo", minQuantity: 0, maxQuantity: 1, options: [] }
+      ]
+    }));
+  };
+
+  const addOption = (groupIndex: number) => {
+    setForm(prev => {
+      const groups = [...prev.modifierGroups];
+      groups[groupIndex].options.push({ name: "Nova Opção", price: 0 });
+      return { ...prev, modifierGroups: groups };
+    });
+  };
+
+  const removeGroup = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      modifierGroups: prev.modifierGroups.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeOption = (groupIndex: number, optionIndex: number) => {
+    setForm(prev => {
+      const groups = [...prev.modifierGroups];
+      groups[groupIndex].options = groups[groupIndex].options.filter((_, i) => i !== optionIndex);
+      return { ...prev, modifierGroups: groups };
+    });
+  };
+
+  const updateGroup = (index: number, field: string, value: any) => {
+    setForm(prev => {
+      const groups = [...prev.modifierGroups];
+      groups[index] = { ...groups[index], [field]: value };
+      return { ...prev, modifierGroups: groups };
+    });
+  };
+
+  const updateOption = (groupIndex: number, optionIndex: number, field: string, value: any) => {
+    setForm(prev => {
+      const groups = [...prev.modifierGroups];
+      groups[groupIndex].options[optionIndex] = { ...groups[groupIndex].options[optionIndex], [field]: value };
+      return { ...prev, modifierGroups: groups };
+    });
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-
-    const payload: ProductPayload = {
-      image: form.image || "🍽️",
-      name: form.name,
-      category: form.category,
-      price: Number(form.price || "0"),
-      available: form.available,
-      stock: Number(form.stock || "0"),
-      promo: form.promo,
-    };
-
     try {
+      const payload: ProductPayload = {
+        ...form,
+        price: parseFloat(form.price),
+        stock: parseInt(form.stock),
+      };
+      
       if (editingId) {
-        const updated = await updateProduct(editingId, payload);
-        setProducts((current) => current.map((product) => (product.id === editingId ? updated : product)));
-        toast.success("Produto atualizado com sucesso.");
+        await updateProduct(editingId, payload);
+        toast.success("Produto atualizado com sucesso!");
       } else {
-        const created = await createProduct(payload);
-        setProducts((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-        toast.success("Produto criado com sucesso.");
+        await createProduct(payload);
+        toast.success("Produto criado com sucesso!");
       }
-
       setDialogOpen(false);
-      setForm(emptyForm);
-      setEditingId(null);
+      loadProducts();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Nao foi possivel salvar o produto.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Imagem muito grande. Máximo 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, image: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const onToggleAvailability = async (id: string) => {
@@ -238,7 +310,11 @@ function CatalogPage() {
               className="group overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:shadow-[var(--shadow-card-hover)]"
             >
               <div className="relative flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-muted to-muted/50 text-7xl">
-                {product.image}
+                {product.image?.startsWith("data:") ? (
+                  <img src={product.image} className="h-full w-full object-cover" />
+                ) : (
+                  product.image
+                )}
                 {product.promo ? (
                   <span className="absolute left-3 top-3 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
                     PROMO
@@ -253,6 +329,9 @@ function CatalogPage() {
               <div className="p-4">
                 <p className="text-xs text-muted-foreground">{product.category}</p>
                 <h3 className="mt-0.5 line-clamp-1 font-semibold">{product.name}</h3>
+                <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground leading-tight min-h-[2rem]">
+                  {product.description || "Sem descrição"}
+                </p>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-lg font-bold text-primary">{fmt.format(product.price)}</span>
                   <span className="text-xs text-muted-foreground">Estoque: {product.stock}</span>
@@ -286,24 +365,45 @@ function CatalogPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{editingId ? "Editar produto" : "Novo produto"}</DialogTitle>
             <DialogDescription>
-              Cadastre as informacoes do item para sincronizar o catalogo do PEDIHUB.
+              Cadastre as informacoes do item e seus opcionais/adicionais.
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4" onSubmit={submit}>
+          <form className="space-y-6" onSubmit={submit}>
+            <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed p-6 bg-muted/30">
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-background bg-card text-5xl shadow-sm">
+                {form.image.startsWith("data:") ? (
+                  <img src={form.image} className="h-full w-full object-cover" />
+                ) : (
+                  form.image
+                )}
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Label htmlFor="product-image" className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors">
+                  Selecionar Foto
+                </Label>
+                <input 
+                  id="product-image" 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleFileChange} 
+                />
+                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">PNG, JPG ou GIF (Max 2MB)</p>
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Imagem / emoji">
-                <Input value={form.image} onChange={(e) => setForm((current) => ({ ...current, image: e.target.value }))} />
-              </Field>
               <Field label="Categoria">
                 <Input
                   value={form.category}
                   onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}
                   list="product-categories"
+                  placeholder="Ex: Bebidas"
                 />
                 <datalist id="product-categories">
                   {categories.map((category) => (
@@ -311,14 +411,22 @@ function CatalogPage() {
                   ))}
                 </datalist>
               </Field>
+              <Field label="Nome do produto">
+                <Input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} required placeholder="Ex: X-Salada Especial" />
+              </Field>
             </div>
 
-            <Field label="Nome do produto">
-              <Input value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} required />
+            <Field label="Descricao">
+              <textarea
+                className="flex min-h-[80px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={form.description}
+                onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))}
+                placeholder="Detalhes do produto..."
+              />
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Preco">
+              <Field label="Preco Base">
                 <Input
                   type="number"
                   step="0.01"
@@ -335,6 +443,78 @@ function CatalogPage() {
                   required
                 />
               </Field>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-t pt-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Opcionais / Modificadores</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addModifierGroup}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Grupo
+                </Button>
+              </div>
+
+              {form.modifierGroups.map((group, gIdx) => (
+                <div key={gIdx} className="rounded-2xl border bg-muted/20 p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="grid flex-1 gap-2 sm:grid-cols-3">
+                      <div className="sm:col-span-1">
+                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Nome do Grupo</Label>
+                         <Input 
+                           value={group.name} 
+                           onChange={(e) => updateGroup(gIdx, "name", e.target.value)}
+                           placeholder="Ex: Escolha o ponto"
+                         />
+                      </div>
+                      <div>
+                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Min</Label>
+                         <Input 
+                           type="number" 
+                           value={group.minQuantity} 
+                           onChange={(e) => updateGroup(gIdx, "minQuantity", parseInt(e.target.value))}
+                         />
+                      </div>
+                      <div>
+                         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Max</Label>
+                         <Input 
+                           type="number" 
+                           value={group.maxQuantity} 
+                           onChange={(e) => updateGroup(gIdx, "maxQuantity", parseInt(e.target.value))}
+                         />
+                      </div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive mt-6" onClick={() => removeGroup(gIdx)}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="pl-4 border-l-2 space-y-2">
+                    {group.options.map((opt, oIdx) => (
+                      <div key={oIdx} className="flex items-center gap-2">
+                        <Input 
+                          placeholder="Nome da opção" 
+                          className="flex-1 h-8 text-xs"
+                          value={opt.name}
+                          onChange={(e) => updateOption(gIdx, oIdx, "name", e.target.value)}
+                        />
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          placeholder="Preço" 
+                          className="w-24 h-8 text-xs"
+                          value={opt.price}
+                          onChange={(e) => updateOption(gIdx, oIdx, "price", parseFloat(e.target.value))}
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => removeOption(gIdx, oIdx)}>
+                          <Trash className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => addOption(gIdx)}>
+                      + Adicionar Opção
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
