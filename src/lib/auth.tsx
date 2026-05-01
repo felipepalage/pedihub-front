@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSession(stored);
+    setReady(true);
     getMe()
       .then((user) => {
         const nextSession: SessionSnapshot = {
@@ -47,8 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         clearStoredSession();
         setSession(null);
-      })
-      .finally(() => setReady(true));
+      });
   }, []);
 
   const value = useMemo<AuthContextValue>(

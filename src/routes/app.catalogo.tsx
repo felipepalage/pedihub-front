@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Plus, Pencil, Copy, Trash2, Search, PlusCircle, Trash } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Search, PlusCircle, Trash, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -147,7 +147,7 @@ function CatalogPage() {
       ...prev,
       modifierGroups: [
         ...prev.modifierGroups,
-        { name: "Novo Grupo", minQuantity: 0, maxQuantity: 1, options: [] }
+        { name: "", minQuantity: 0, maxQuantity: 1, options: [] }
       ]
     }));
   };
@@ -155,7 +155,7 @@ function CatalogPage() {
   const addOption = (groupIndex: number) => {
     setForm(prev => {
       const groups = [...prev.modifierGroups];
-      groups[groupIndex].options.push({ name: "Nova Opção", price: 0 });
+      groups[groupIndex].options.push({ name: "", price: 0 });
       return { ...prev, modifierGroups: groups };
     });
   };

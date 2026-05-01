@@ -369,14 +369,16 @@ function OrdersPage() {
                     <MessageCircle className="mr-2 h-4 w-4" />
                     Notificar Status (WhatsApp)
                   </Button>
-                  <Button className="col-span-2 h-12 text-lg" onClick={onAdvance}>
-                    Avancar para: {
-                      selected.status === "novo" ? "Aceitar Pedido" :
-                      selected.status === "aceito" ? "Iniciar Preparo" :
-                      selected.status === "preparando" ? "Despachar Entrega" :
-                      selected.status === "saiu_entrega" ? "Finalizar Pedido" : "Concluido"
-                    }
-                  </Button>
+                  {selected.status !== "finalizado" && selected.status !== "cancelado" && (
+                    <Button className="col-span-2 h-12 text-lg" onClick={onAdvance}>
+                      Avancar para: {
+                        selected.status === "novo" ? "Aceitar Pedido" :
+                        selected.status === "aceito" ? "Iniciar Preparo" :
+                        selected.status === "preparando" ? "Despachar Entrega" :
+                        selected.status === "saiu_entrega" ? "Finalizar Pedido" : "Concluido"
+                      }
+                    </Button>
+                  )}
                 </div>
               </div>
             </>
