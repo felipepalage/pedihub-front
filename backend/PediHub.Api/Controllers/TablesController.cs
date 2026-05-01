@@ -30,6 +30,12 @@ public sealed class TablesController(PediHubDbContext dbContext) : ControllerBas
         var merchant = await dbContext.Merchants.FindAsync(merchantId);
         if (merchant is null) return NotFound();
 
+        var exists = await dbContext.MerchantTables
+            .AnyAsync(x => x.MerchantId == merchantId && x.Number == request.Number.Trim(), cancellationToken);
+
+        if (exists)
+            return BadRequest(new { message = "Esta mesa já está cadastrada." });
+
         var table = new MerchantTable
         {
             MerchantId = merchantId,

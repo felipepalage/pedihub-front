@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PediHub.Api.Contracts;
 using PediHub.Api.Data;
+using PediHub.Api.Extensions;
 using PediHub.Api.Models;
 
 namespace PediHub.Api.Controllers;
@@ -29,6 +30,26 @@ public sealed class AdminController(PediHubDbContext dbContext) : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(merchants);
+    }
+
+    [HttpDelete("merchants/{id:guid}")]
+    public async Task<IActionResult> DeleteMerchant(Guid id, CancellationToken cancellationToken)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var merchant = await dbContext.Merchants.FindAsync(id);
+        if (merchant is null) return NotFound();
+
+        // Check if it's the admin merchant (safety)
+        if (merchant.Email == "fguilherme545@gmail.com")
+        {
+            return BadRequest(new { message = "Não é possível excluir o lojista principal do administrador." });
+        }
+
+        dbContext.Merchants.Remove(merchant);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [HttpGet("tokens")]
@@ -59,6 +80,39 @@ public sealed class AdminController(PediHubDbContext dbContext) : ControllerBase
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new ActivationTokenDto(token.Id, token.Code, token.Months, token.IsUsed, token.CreatedAt, token.UsedAt));
+    }
+
+    [HttpPost("fix-slugs")]
+    public async Task<IActionResult> FixSlugs(CancellationToken cancellationToken)
+    {
+        if (!IsSuperAdmin()) return Forbid();
+
+        var merchants = await dbContext.Merchants
+            .Where(x => x.Slug == null || x.Slug == "")
+            .ToListAsync(cancellationToken);
+
+        var updatedCount = 0;
+        foreach (var merchant in merchants)
+        {
+            var baseSlug = merchant.CompanyName.GenerateSlug();
+            var slug = baseSlug;
+            var counter = 1;
+
+            while (await dbContext.Merchants.AnyAsync(x => x.Slug == slug && x.Id != merchant.Id, cancellationToken))
+            {
+                slug = $"{baseSlug}-{counter++}";
+            }
+
+            merchant.Slug = slug;
+            updatedCount++;
+        }
+
+        if (updatedCount > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return Ok(new { message = $"{updatedCount} slugs atualizados com sucesso." });
     }
 
     private static string GenerateRandomCode()

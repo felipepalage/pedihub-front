@@ -187,6 +187,11 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
         {
             entity.ToTable("MerchantTables", "pedihub");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.MerchantId, x.Number }).IsUnique();
+            entity.HasOne<Merchant>()
+                .WithMany()
+                .HasForeignKey(x => x.MerchantId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ActivationToken>(entity =>

@@ -566,6 +566,12 @@ export function getAdminMerchants() {
   return apiRequest<AdminMerchant[]>("/api/admin/merchants");
 }
 
+export function deleteAdminMerchant(id: string) {
+  return apiRequest<void>(`/api/admin/merchants/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function getAdminTokens() {
   return apiRequest<ActivationToken[]>("/api/admin/tokens");
 }

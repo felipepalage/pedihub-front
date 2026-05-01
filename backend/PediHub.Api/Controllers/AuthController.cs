@@ -5,6 +5,7 @@ using PediHub.Api.Contracts;
 using PediHub.Api.Data;
 using PediHub.Api.Models;
 using PediHub.Api.Services;
+using PediHub.Api.Extensions;
 
 namespace PediHub.Api.Controllers;
 
@@ -31,8 +32,8 @@ public sealed class AuthController(
             return Conflict(new { message = "Ja existe uma empresa com este CPF/CNPJ." });
         }
 
-        var baseSlug = GenerateSlug(request.CompanyName);
-        var slug = baseSlug;
+        var slug = request.CompanyName.GenerateSlug();
+        var baseSlug = slug;
         var slugCounter = 1;
         while (await dbContext.Merchants.AnyAsync(x => x.Slug == slug, cancellationToken))
         {
@@ -130,29 +131,4 @@ public sealed class AuthController(
         return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status, merchant.LogoUrl ?? "", user.Role, merchant.ValidUntil, merchant.Slug);
     }
 
-    private static string RemoveDiacritics(string text) 
-    {
-        var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
-        var stringBuilder = new System.Text.StringBuilder(capacity: normalizedString.Length);
-
-        for (int i = 0; i < normalizedString.Length; i++)
-        {
-            char c = normalizedString[i];
-            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
-            {
-                stringBuilder.Append(c);
-            }
-        }
-
-        return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC);
-    }
-
-    private static string GenerateSlug(string name)
-    {
-        var slug = RemoveDiacritics(name).ToLowerInvariant();
-        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\s-]", "");
-        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"\s+", "-").Trim('-');
-        return slug;
-    }
 }

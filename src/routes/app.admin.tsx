@@ -3,7 +3,14 @@ import { useEffect, useState } from "react";
 import { ShieldAlert, Plus, CheckCircle2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAdminMerchants, getAdminTokens, createAdminToken, AdminMerchant, ActivationToken } from "@/lib/api";
+import { 
+  getAdminMerchants, 
+  getAdminTokens, 
+  createAdminToken, 
+  deleteAdminMerchant,
+  AdminMerchant, 
+  ActivationToken 
+} from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,6 +24,7 @@ function AdminPage() {
   const [tokens, setTokens] = useState<ActivationToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingToken, setCreatingToken] = useState(false);
+  const [deletingMerchantId, setDeletingMerchantId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -48,6 +56,23 @@ function AdminPage() {
       toast.error(err.message || "Erro ao criar token.");
     } finally {
       setCreatingToken(false);
+    }
+  };
+
+  const handleDeleteMerchant = async (id: string) => {
+    if (deletingMerchantId !== id) {
+      setDeletingMerchantId(id);
+      setTimeout(() => setDeletingMerchantId(null), 4000); // Reset after 4s
+      return;
+    }
+    
+    try {
+      await deleteAdminMerchant(id);
+      toast.success("Lojista excluído com sucesso.");
+      setDeletingMerchantId(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao excluir lojista.");
     }
   };
 
@@ -92,6 +117,7 @@ function AdminPage() {
                     <th className="px-6 py-4 font-medium">Cadastro</th>
                     <th className="px-6 py-4 font-medium">Validade</th>
                     <th className="px-6 py-4 font-medium">Status do Acesso</th>
+                    <th className="px-6 py-4 font-medium text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -115,6 +141,16 @@ function AdminPage() {
                               Liberado
                             </span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Button 
+                            variant={deletingMerchantId === merchant.id ? "destructive" : "ghost"} 
+                            size={deletingMerchantId === merchant.id ? "sm" : "sm"} 
+                            className={deletingMerchantId === merchant.id ? "font-bold animate-pulse" : "text-destructive hover:bg-destructive/10"}
+                            onClick={() => handleDeleteMerchant(merchant.id)}
+                          >
+                            {deletingMerchantId === merchant.id ? "CLIQUE PARA CONFIRMAR EXCLUSÃO" : "Excluir"}
+                          </Button>
                         </td>
                       </tr>
                     );

@@ -217,12 +217,20 @@ function SettingsPage() {
     }
   };
 
+  const [deletingCouponId, setDeletingCouponId] = useState<string | null>(null);
+
   const handleDeleteCoupon = async (id: string) => {
-    if (!confirm("Excluir este cupom permanentemente?")) return;
+    if (deletingCouponId !== id) {
+      setDeletingCouponId(id);
+      setTimeout(() => setDeletingCouponId(null), 3000); // Reset after 3s
+      return;
+    }
+
     try {
       await deleteCoupon(id);
       setCoupons(prev => prev.filter(c => c.id !== id));
       toast.success("Cupom removido!");
+      setDeletingCouponId(null);
     } catch (err) {
       toast.error("Erro ao excluir cupom.");
     }
@@ -459,8 +467,13 @@ function SettingsPage() {
                         {coupon.type === "fixed" ? `R$ ${coupon.discountAmount} OFF` : `${coupon.discountAmount}% OFF`}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => handleDeleteCoupon(coupon.id)}>
-                      <Trash className="h-4 w-4" />
+                    <Button 
+                      variant={deletingCouponId === coupon.id ? "destructive" : "ghost"} 
+                      size={deletingCouponId === coupon.id ? "sm" : "icon"} 
+                      className={deletingCouponId === coupon.id ? "h-8 px-2 text-[10px] font-bold" : "text-destructive h-8 w-8"} 
+                      onClick={() => handleDeleteCoupon(coupon.id)}
+                    >
+                      {deletingCouponId === coupon.id ? "CONFIRMAR" : <Trash className="h-4 w-4" />}
                     </Button>
                   </div>
                   
