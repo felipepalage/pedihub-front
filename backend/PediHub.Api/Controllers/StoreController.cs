@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using PediHub.Api.Contracts;
 using PediHub.Api.Data;
 using PediHub.Api.Models;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
 
 namespace PediHub.Api.Controllers;
 
@@ -168,11 +171,25 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
         var total = totalItems + deliveryFee - couponDiscount;
         if (total < 0) total = 0;
 
-        var addressString = request.Type == "delivery" 
-            ? $"{request.Street}, {request.AddressNumber} - {request.Neighborhood}, {request.City} - {request.State} (CEP: {request.ZipCode})"
-            : "Retirada no Local";
-
-        if (!string.IsNullOrWhiteSpace(request.Complement)) addressString += $" Comp: {request.Complement}";
+        string addressString;
+        if (request.Type == "delivery")
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(request.Street)) parts.Add(request.Street);
+            if (!string.IsNullOrWhiteSpace(request.AddressNumber)) parts.Add(request.AddressNumber);
+            if (!string.IsNullOrWhiteSpace(request.Neighborhood)) parts.Add(request.Neighborhood);
+            if (!string.IsNullOrWhiteSpace(request.City)) parts.Add(request.City);
+            if (!string.IsNullOrWhiteSpace(request.State)) parts.Add(request.State);
+            if (!string.IsNullOrWhiteSpace(request.ZipCode)) parts.Add($"(CEP: {request.ZipCode})");
+            
+            addressString = string.Join(", ", parts);
+            if (!string.IsNullOrWhiteSpace(request.Complement)) addressString += $" - {request.Complement}";
+            if (!string.IsNullOrWhiteSpace(request.ReferencePoint)) addressString += $" (Ref: {request.ReferencePoint})";
+        }
+        else
+        {
+            addressString = "Retirada no Local";
+        }
 
         var order = new Order
         {
@@ -183,6 +200,7 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             CustomerPhone = request.CustomerPhone.Trim(),
             Status = merchant.AutoAcceptOrders ? "aceito" : "novo",
             Payment = request.Payment,
+            Type = request.Type,
             Total = total,
             Address = addressString,
             DeliveryFee = deliveryFee,
@@ -211,53 +229,73 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
 
         string? checkoutUrl = null;
 
-        /*
         if (request.Payment == "mercado_pago_online" && !string.IsNullOrWhiteSpace(merchant.MercadoPagoAccessToken))
         {
             try
             {
-                MercadoPago.Config.MercadoPagoConfig.AccessToken = merchant.MercadoPagoAccessToken;
-                var client = new MercadoPago.Client.Preference.PreferenceClient();
-                var preferenceRequest = new MercadoPago.Client.Preference.PreferenceRequest
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", merchant.MercadoPagoAccessToken);
+
+                var items = order.Items.Select(i => new
                 {
-                    Items = order.Items.Select(i => new MercadoPago.Client.Preference.PreferenceItemRequest
-                    {
-                        Title = i.Name,
-                        Quantity = i.Quantity,
-                        CurrencyId = "BRL",
-                        UnitPrice = i.UnitPrice
-                    }).ToList(),
-                    BackUrls = new MercadoPago.Client.Preference.PreferenceBackUrlsRequest
-                    {
-                        Success = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=success",
-                        Failure = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=failure",
-                        Pending = $"http://localhost:5174/store/{merchant.Slug}/pedido/{order.Number}?status=pending"
-                    },
-                    AutoReturn = "approved",
-                    ExternalReference = order.Id.ToString()
-                };
+                    title = i.Name,
+                    quantity = i.Quantity,
+                    currency_id = "BRL",
+                    unit_price = (double)i.UnitPrice
+                }).ToList();
 
                 if (deliveryFee > 0)
                 {
-                    preferenceRequest.Items.Add(new MercadoPago.Client.Preference.PreferenceItemRequest
+                    items.Add(new
                     {
-                        Title = "Taxa de Entrega",
-                        Quantity = 1,
-                        CurrencyId = "BRL",
-                        UnitPrice = deliveryFee
+                        title = "Taxa de Entrega",
+                        quantity = 1,
+                        currency_id = "BRL",
+                        unit_price = (double)deliveryFee
                     });
                 }
 
-                var preference = await client.CreateAsync(preferenceRequest, cancellationToken: cancellationToken);
-                checkoutUrl = preference.InitPoint;
+                if (couponDiscount > 0)
+                {
+                    items.Add(new
+                    {
+                        title = "Desconto",
+                        quantity = 1,
+                        currency_id = "BRL",
+                        unit_price = -(double)couponDiscount
+                    });
+                }
+
+                var preferenceData = new
+                {
+                    items = items,
+                    back_urls = new
+                    {
+                        success = $"http://localhost:5173/{merchant.Slug}/order/{order.Number}?status=success",
+                        failure = $"http://localhost:5173/{merchant.Slug}/order/{order.Number}?status=failure",
+                        pending = $"http://localhost:5173/{merchant.Slug}/order/{order.Number}?status=pending"
+                    },
+                    auto_return = "approved",
+                    external_reference = order.Id.ToString()
+                };
+
+                var response = await httpClient.PostAsJsonAsync("https://api.mercadopago.com/checkout/preferences", preferenceData, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(cancellationToken: cancellationToken);
+                    checkoutUrl = result.GetProperty("init_point").GetString();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                    Console.WriteLine($"Erro MercadoPago API: {response.StatusCode} - {error}");
+                }
             }
             catch (Exception ex)
             {
-                // Log and ignore to not fail the order completely, frontend handles fallback
-                Console.WriteLine($"Erro MercadoPago: {ex.Message}");
+                Console.WriteLine($"Erro ao integrar com MercadoPago: {ex.Message}");
             }
         }
-        */
 
         return Ok(new { 
             message = "Pedido realizado com sucesso!", 
@@ -266,7 +304,7 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
         });
     }
 
-    [HttpGet("orders/{orderNumber:int}")]
+    [HttpGet("{slug}/orders/{orderNumber:int}")]
     public async Task<ActionResult<OrderDetailDto>> GetOrder(string slug, int orderNumber, CancellationToken cancellationToken)
     {
         var merchant = await dbContext.Merchants
@@ -289,8 +327,10 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             order.CustomerName,
             order.Total,
             order.OrderedAt.ToLocalTime().ToString("HH:mm"),
+            order.OrderedAt,
             order.Status,
             order.Payment,
+            order.Type,
             order.Address,
             order.CustomerPhone,
             order.DeliveryFee,

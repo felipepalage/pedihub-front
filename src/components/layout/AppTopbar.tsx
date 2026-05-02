@@ -28,7 +28,6 @@ export function AppTopbar() {
   const { user, logout } = useAuth();
 
   const companyName = user?.merchantName ?? "PEDIHUB";
-  const plan = user?.plan ?? "Starter";
   const initials = companyName
     .split(" ")
     .map((chunk) => chunk[0])
@@ -103,7 +102,6 @@ export function AppTopbar() {
             </Avatar>
             <div className="hidden text-left md:block">
               <p className="text-sm font-semibold leading-tight">{companyName}</p>
-              <p className="text-[11px] leading-tight text-muted-foreground">Plano {plan}</p>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

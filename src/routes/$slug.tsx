@@ -213,8 +213,8 @@ function StorePage() {
     }
   };
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitOrder = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
     if (cart.length === 0) return;
 
     if (formData.type === "delivery" && formData.zipCode.replace(/\D/g, "").length !== 8) {
@@ -227,6 +227,7 @@ function StorePage() {
       return;
     }
 
+    // Se for PIX e o modal ainda nao estiver aberto, abre ele
     if (formData.payment === "pix" && !pixModalOpen) {
       setPixModalOpen(true);
       return;
@@ -237,9 +238,15 @@ function StorePage() {
       const payload: PlaceOrderPayload = {
         ...formData,
         changeFor: formData.payment === "dinheiro" ? Number(formData.changeFor) : undefined,
-        items: cart,
+        items: cart.map(item => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        })),
         couponCode: appliedCoupon?.code
       };
+      
       const res = await placeStoreOrder(slug, payload);
 
       if (res.checkoutUrl) {
@@ -247,12 +254,13 @@ function StorePage() {
         return;
       }
 
-      setOrderSuccess(res.orderNumber);
       setCart([]);
       setCheckoutOpen(false);
+      setPixModalOpen(false);
+      
       navigate({ 
-        to: "/$slug/order/$orderNumber", 
-        params: { slug, orderNumber: res.orderNumber.toString() } 
+        to: "/pedido/$slug/$orderNumber", 
+        params: { slug, orderNumber: String(res.orderNumber) } 
       });
     } catch (err: any) {
       toast.error(err.message || "Erro ao realizar pedido.");
@@ -682,22 +690,6 @@ function StorePage() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Success Modal */}
-      <Dialog open={orderSuccess !== null} onOpenChange={() => setOrderSuccess(null)}>
-        <DialogContent className="max-w-sm text-center py-10">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-green-600 mb-6">
-            <CheckCircle2 className="h-12 w-12" />
-          </div>
-          <h2 className="text-2xl font-bold">Pedido Enviado!</h2>
-          <p className="mt-2 text-muted-foreground">
-            Seu pedido **#{orderSuccess}** foi recebido pela loja e já está sendo processado.
-          </p>
-          <Button className="mt-8 w-full" variant="outline" onClick={() => setOrderSuccess(null)}>
-            Voltar para a loja
-          </Button>
         </DialogContent>
       </Dialog>
 

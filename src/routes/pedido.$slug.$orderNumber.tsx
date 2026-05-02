@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { statusLabels, paymentLabels } from "@/lib/domain";
 
-export const Route = createFileRoute("/$slug/order/$orderNumber")({
+export const Route = createFileRoute("/pedido/$slug/$orderNumber")({
   component: OrderTrackingPage,
 });
 
@@ -159,7 +159,7 @@ function OrderTrackingPage() {
         <div className="rounded-3xl border bg-card p-6 shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b pb-4">
             <h2 className="font-bold text-lg">Detalhes do Pedido</h2>
-            <span className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="text-xs text-muted-foreground">{new Date(order.orderedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
 
           <div className="space-y-4">
@@ -184,7 +184,7 @@ function OrderTrackingPage() {
             <div className="pt-4 border-t space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>{fmt.format(order.subtotal)}</span>
+                <span>{fmt.format(order.total - order.deliveryFee + (order.couponDiscount || 0))}</span>
               </div>
               {order.deliveryFee > 0 && (
                 <div className="flex justify-between text-sm">

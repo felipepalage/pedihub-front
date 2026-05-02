@@ -23,7 +23,7 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
 import { Route as AppCatalogoRouteImport } from './routes/app.catalogo'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
-import { Route as SlugOrderOrderNumberRouteImport } from './routes/$slug.order.$orderNumber'
+import { Route as PedidoSlugOrderNumberRouteImport } from './routes/pedido.$slug.$orderNumber'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -95,15 +95,15 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
-const SlugOrderOrderNumberRoute = SlugOrderOrderNumberRouteImport.update({
-  id: '/order/$orderNumber',
-  path: '/order/$orderNumber',
-  getParentRoute: () => SlugRoute,
+const PedidoSlugOrderNumberRoute = PedidoSlugOrderNumberRouteImport.update({
+  id: '/pedido/$slug/$orderNumber',
+  path: '/pedido/$slug/$orderNumber',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$slug': typeof SlugRouteWithChildren
+  '/$slug': typeof SlugRoute
   '/app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
@@ -116,11 +116,11 @@ export interface FileRoutesByFullPath {
   '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
-  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
+  '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$slug': typeof SlugRouteWithChildren
+  '/$slug': typeof SlugRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
@@ -132,12 +132,12 @@ export interface FileRoutesByTo {
   '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app': typeof AppIndexRoute
-  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
+  '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$slug': typeof SlugRouteWithChildren
+  '/$slug': typeof SlugRoute
   '/app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
@@ -150,7 +150,7 @@ export interface FileRoutesById {
   '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
-  '/$slug/order/$orderNumber': typeof SlugOrderOrderNumberRoute
+  '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -169,7 +169,7 @@ export interface FileRouteTypes {
     | '/app/plano'
     | '/app/relatorios'
     | '/app/'
-    | '/$slug/order/$orderNumber'
+    | '/pedido/$slug/$orderNumber'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -185,7 +185,7 @@ export interface FileRouteTypes {
     | '/app/plano'
     | '/app/relatorios'
     | '/app'
-    | '/$slug/order/$orderNumber'
+    | '/pedido/$slug/$orderNumber'
   id:
     | '__root__'
     | '/'
@@ -202,15 +202,16 @@ export interface FileRouteTypes {
     | '/app/plano'
     | '/app/relatorios'
     | '/app/'
-    | '/$slug/order/$orderNumber'
+    | '/pedido/$slug/$orderNumber'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SlugRoute: typeof SlugRouteWithChildren
+  SlugRoute: typeof SlugRoute
   AppRoute: typeof AppRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
+  PedidoSlugOrderNumberRoute: typeof PedidoSlugOrderNumberRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -313,25 +314,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
-    '/$slug/order/$orderNumber': {
-      id: '/$slug/order/$orderNumber'
-      path: '/order/$orderNumber'
-      fullPath: '/$slug/order/$orderNumber'
-      preLoaderRoute: typeof SlugOrderOrderNumberRouteImport
-      parentRoute: typeof SlugRoute
+    '/pedido/$slug/$orderNumber': {
+      id: '/pedido/$slug/$orderNumber'
+      path: '/pedido/$slug/$orderNumber'
+      fullPath: '/pedido/$slug/$orderNumber'
+      preLoaderRoute: typeof PedidoSlugOrderNumberRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface SlugRouteChildren {
-  SlugOrderOrderNumberRoute: typeof SlugOrderOrderNumberRoute
-}
-
-const SlugRouteChildren: SlugRouteChildren = {
-  SlugOrderOrderNumberRoute: SlugOrderOrderNumberRoute,
-}
-
-const SlugRouteWithChildren = SlugRoute._addFileChildren(SlugRouteChildren)
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
@@ -361,10 +352,11 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SlugRoute: SlugRouteWithChildren,
+  SlugRoute: SlugRoute,
   AppRoute: AppRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
+  PedidoSlugOrderNumberRoute: PedidoSlugOrderNumberRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

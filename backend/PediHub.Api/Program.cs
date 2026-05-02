@@ -104,17 +104,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure CORS even on errors
-app.Use(async (context, next) => {
-    context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-    context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-    context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
-    if (context.Request.Method == "OPTIONS") {
-        context.Response.StatusCode = 200;
-        return;
-    }
-    await next();
-});
+app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
 {

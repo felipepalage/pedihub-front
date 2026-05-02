@@ -103,6 +103,7 @@ public sealed class Order
     public DateTimeOffset OrderedAt { get; set; } = DateTimeOffset.UtcNow;
     public string Status { get; set; } = "novo";
     public string Payment { get; set; } = "pix";
+    public string Type { get; set; } = "delivery"; // "delivery" or "pickup"
     public string? Address { get; set; }
     
     // New fields for WhatsApp integration and delivery details

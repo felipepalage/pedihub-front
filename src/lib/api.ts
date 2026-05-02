@@ -95,7 +95,7 @@ export interface OrderListItem {
   id: string;
   number: number;
   channel: Channel;
-  customer: string;
+  customerName: string;
   total: number;
   time: string;
   status: OrderStatus;
@@ -103,6 +103,8 @@ export interface OrderListItem {
 }
 
 export interface OrderDetail extends OrderListItem {
+  orderedAt: string;
+  type: "delivery" | "pickup";
   address?: string | null;
   customerPhone: string;
   deliveryFee: number;
@@ -113,6 +115,8 @@ export interface OrderDetail extends OrderListItem {
   complement: string;
   referencePoint: string;
   items: OrderItem[];
+  couponCode?: string;
+  couponDiscount: number;
 }
 
 export interface DashboardSummary {

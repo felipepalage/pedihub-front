@@ -92,7 +92,7 @@ function OrdersPage() {
             notificationSound.play().catch(e => console.log("Erro ao tocar som:", e));
             toast.info(`Novo pedido recebido! #${newestOrder.number}`, {
               duration: 5000,
-              description: newestOrder.customer
+              description: newestOrder.customerName
             });
           }
           setLastOrderNumber(newestOrder.number);
@@ -259,7 +259,7 @@ function OrdersPage() {
                   <tr key={order.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-3 font-semibold">#{order.number}</td>
                     <td className="px-4 py-3">{channelLabels[order.channel]}</td>
-                    <td className="px-4 py-3">{order.customer}</td>
+                    <td className="px-4 py-3">{order.customerName}</td>
                     <td className="px-4 py-3 text-right font-semibold">{fmt.format(order.total)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{order.time}</td>
                     <td className="px-4 py-3">
@@ -330,7 +330,7 @@ function OrdersPage() {
               <div className="mt-6 space-y-5">
                 <div className="rounded-xl bg-muted/50 p-4">
                   <p className="text-xs text-muted-foreground">Cliente</p>
-                  <p className="font-semibold">{selected.customer}</p>
+                  <p className="font-semibold">{selected.customerName}</p>
                   {selected.address ? (
                     <p className="mt-1 text-sm text-muted-foreground">{selected.address}</p>
                   ) : null}
@@ -389,7 +389,7 @@ function OrdersPage() {
   );
 }
 
-function printOrder(order: Pick<OrderListItem, "number" | "customer" | "total" | "status" | "channel" | "payment" | "time"> | OrderDetail) {
+function printOrder(order: Pick<OrderListItem, "number" | "customerName" | "total" | "status" | "channel" | "payment" | "time"> | OrderDetail) {
   const popup = window.open("", "_blank", "width=420,height=640");
   if (!popup) {
     return;
@@ -416,7 +416,7 @@ function printOrder(order: Pick<OrderListItem, "number" | "customer" | "total" |
         <div class="watermark">PEDIHUB DELIVERY</div>
         <div class="header">
           <h1 style="margin:0; font-size: 24px;">#${order.number}</h1>
-          <p style="margin:0; font-weight: bold;">${order.customer.split(' ')[0]}</p>
+          <p style="margin:0; font-weight: bold;">${order.customerName.split(' ')[0]}</p>
           <p style="margin:0; font-size: 10px;">${new Date().toLocaleString('pt-BR')}</p>
         </div>
 

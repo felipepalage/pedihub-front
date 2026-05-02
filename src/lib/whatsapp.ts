@@ -6,7 +6,7 @@ export function formatOrderToWhatsApp(order: OrderDetail, storeUrl?: string): st
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
   const baseUrl = storeUrl || window.location.origin;
-  const trackingLink = `${baseUrl}/app/pedidos/track/${order.id}`; // Simple track link representation
+  const trackingLink = `${baseUrl}/${order.channel === 'site' ? '' : ''}${order.id}`; // Placeholder - store slug not available here
 
   let text = `✅ NOVO PEDIDO\n`;
   text += `-----------------------------\n`;
@@ -26,7 +26,7 @@ export function formatOrderToWhatsApp(order: OrderDetail, storeUrl?: string): st
   text += `SUBTOTAL: ${formatMoney(subtotal)}\n\n`;
   text += `------------------------------------------\n`;
   text += `▶️ Dados para entrega\n\n`;
-  text += `Nome: ${order.customer}\n`;
+  text += `Nome: ${order.customerName}\n`;
   
   if (order.street) {
     text += `Endereço: ${order.street}, nº: ${order.addressNumber || "S/N"}\n`;
@@ -86,7 +86,7 @@ export function formatStatusUpdateToWhatsApp(order: OrderDetail): string {
 
   const message = statusMessages[order.status] || "Atualizamos o status do seu pedido!";
 
-  let text = `Ola, ${order.customer}! 👋\n\n`;
+  let text = `Ola, ${order.customerName}! 👋\n\n`;
   text += `${message}\n\n`;
   text += `📦 *Pedido #${order.number}*\n`;
   text += `-----------------------------\n`;
