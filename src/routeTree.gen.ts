@@ -16,7 +16,6 @@ import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
-import { Route as AppPlanoRouteImport } from './routes/app.plano'
 import { Route as AppPedidosRouteImport } from './routes/app.pedidos'
 import { Route as AppIntegracoesRouteImport } from './routes/app.integracoes'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
@@ -58,11 +57,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPlanoRoute = AppPlanoRouteImport.update({
-  id: '/plano',
-  path: '/plano',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPedidosRoute = AppPedidosRouteImport.update({
@@ -113,7 +107,6 @@ export interface FileRoutesByFullPath {
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
-  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
   '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
@@ -129,7 +122,6 @@ export interface FileRoutesByTo {
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
-  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app': typeof AppIndexRoute
   '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
@@ -147,7 +139,6 @@ export interface FileRoutesById {
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
   '/app/pedidos': typeof AppPedidosRoute
-  '/app/plano': typeof AppPlanoRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
   '/pedido/$slug/$orderNumber': typeof PedidoSlugOrderNumberRoute
@@ -166,7 +157,6 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
-    | '/app/plano'
     | '/app/relatorios'
     | '/app/'
     | '/pedido/$slug/$orderNumber'
@@ -182,7 +172,6 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
-    | '/app/plano'
     | '/app/relatorios'
     | '/app'
     | '/pedido/$slug/$orderNumber'
@@ -199,7 +188,6 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/integracoes'
     | '/app/pedidos'
-    | '/app/plano'
     | '/app/relatorios'
     | '/app/'
     | '/pedido/$slug/$orderNumber'
@@ -265,13 +253,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRelatoriosRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/plano': {
-      id: '/app/plano'
-      path: '/plano'
-      fullPath: '/app/plano'
-      preLoaderRoute: typeof AppPlanoRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/pedidos': {
       id: '/app/pedidos'
       path: '/pedidos'
@@ -331,7 +312,6 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
   AppPedidosRoute: typeof AppPedidosRoute
-  AppPlanoRoute: typeof AppPlanoRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -343,7 +323,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
   AppPedidosRoute: AppPedidosRoute,
-  AppPlanoRoute: AppPlanoRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppIndexRoute: AppIndexRoute,
 }

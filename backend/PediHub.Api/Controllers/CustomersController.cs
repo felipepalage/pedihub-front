@@ -27,7 +27,6 @@ public sealed class CustomersController(PediHubDbContext dbContext) : Controller
             .Select(x => new CustomerSummaryDto(
                 x.Id,
                 x.CompanyName,
-                x.Plan,
                 x.Status,
                 x.LastAccessAt,
                 x.CreatedAt))

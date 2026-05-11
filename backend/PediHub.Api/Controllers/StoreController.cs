@@ -26,8 +26,7 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
         }
 
         // Check if trial/subscription is valid
-        var isExpired = merchant.ValidUntil < DateTimeOffset.UtcNow && merchant.Status != "ativo"; // allow bypass if manual set to ativo
-        var status = isExpired ? "fechado" : "aberto";
+        var status = merchant.Status == "ativo" ? "aberto" : "fechado";
 
         var dto = new StorePublicDto(
             merchant.Id,
@@ -113,7 +112,7 @@ public sealed class StoreController(PediHubDbContext dbContext) : ControllerBase
             return NotFound(new { message = "Loja não encontrada." });
         }
 
-        if (merchant.ValidUntil < DateTimeOffset.UtcNow && merchant.Status != "ativo")
+        if (merchant.Status != "ativo")
         {
             return BadRequest(new { message = "Esta loja não está recebendo pedidos no momento." });
         }

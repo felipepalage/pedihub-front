@@ -205,6 +205,7 @@ public sealed record IntegrationDto(
     string Status,
     string Emoji);
 
+public sealed record AdminMerchantDto(
     Guid Id,
     string CompanyName,
     string Cnpj,

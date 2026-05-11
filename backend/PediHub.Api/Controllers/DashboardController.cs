@@ -110,7 +110,6 @@ public sealed class DashboardController(PediHubDbContext dbContext) : Controller
 
         var summary = new DashboardSummaryDto(
             merchant.CompanyName,
-            merchant.Plan,
             new DashboardStatsDto(
                 todayOrders.Count,
                 todayRevenue,

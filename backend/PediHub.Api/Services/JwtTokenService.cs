@@ -32,7 +32,6 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
             new(ClaimTypes.Role, user.Role),
             new("merchant_id", merchant.Id.ToString()),
             new("merchant_name", merchant.CompanyName),
-            new("merchant_plan", merchant.Plan),
         };
 
         var token = new JwtSecurityToken(
