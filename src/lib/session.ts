@@ -6,7 +6,6 @@ export interface SessionUser {
   fullName: string;
   email: string;
   merchantName: string;
-  plan: string;
   status: string;
   slug: string;
 }

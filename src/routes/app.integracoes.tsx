@@ -189,7 +189,7 @@ function IntegrationsPage() {
               steps={[
                 "Configure seu número de WhatsApp abaixo",
                 "Compartilhe o link do seu cardápio com clientes via WhatsApp",
-                "Os pedidos aparecem automaticamente no painel com canal "WhatsApp"",
+                'Os pedidos aparecem automaticamente no painel com canal "WhatsApp"',
               ]}
             />
             <Button size="sm" onClick={() => setWhatsappModalOpen(true)}>
@@ -322,7 +322,7 @@ function IntegrationsPage() {
           <HowItWorks
             steps={[
               "Acesse o painel de Pedidos",
-              "Crie um novo pedido manual com o canal "Balcão"",
+              'Crie um novo pedido manual com o canal "Balcão"',
               "O pedido entra na fila de produção normalmente",
             ]}
           />

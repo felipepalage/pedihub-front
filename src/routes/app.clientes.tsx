@@ -16,11 +16,6 @@ const statusStyles = {
   inativo: "border-border bg-muted text-muted-foreground",
 };
 
-const planStyles = {
-  Starter: "bg-muted text-foreground",
-  Pro: "bg-info/10 text-info",
-  Enterprise: "bg-primary/10 text-primary",
-};
 
 import { useAuth } from "@/lib/auth";
 
@@ -82,7 +77,7 @@ function CustomersPage() {
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Empresa</th>
-                <th className="px-4 py-3 text-left font-medium">Plano</th>
+
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-left font-medium">Ultimo acesso</th>
                 <th className="px-4 py-3 text-left font-medium">Data cadastro</th>
@@ -91,19 +86,19 @@ function CustomersPage() {
             <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-muted-foreground">
+                  <td colSpan={4} className="py-16 text-center text-muted-foreground">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-destructive">
+                  <td colSpan={4} className="py-16 text-center text-destructive">
                     {error}
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-muted-foreground">
+                  <td colSpan={4} className="py-16 text-center text-muted-foreground">
                     Nenhum estabelecimento encontrado.
                   </td>
                 </tr>
@@ -122,16 +117,7 @@ function CustomersPage() {
                         <span className="font-semibold">{customer.company}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                          planStyles[customer.plan],
-                        )}
-                      >
-                        {customer.plan}
-                      </span>
-                    </td>
+
                     <td className="px-4 py-3">
                       <span
                         className={cn(

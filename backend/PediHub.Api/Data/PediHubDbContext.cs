@@ -11,7 +11,7 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<IntegrationConnection> Integrations => Set<IntegrationConnection>();
-    public DbSet<ActivationToken> ActivationTokens => Set<ActivationToken>();
+
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<ModifierGroup> ModifierGroups => Set<ModifierGroup>();
     public DbSet<ModifierOption> ModifierOptions => Set<ModifierOption>();
@@ -30,7 +30,7 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
             entity.HasKey(x => x.Id);
             entity.Property(x => x.CompanyName).HasMaxLength(160).IsRequired();
             entity.Property(x => x.Cnpj).HasMaxLength(20).IsRequired();
-            entity.Property(x => x.Plan).HasMaxLength(20).IsRequired();
+
             entity.Property(x => x.Status).HasMaxLength(20).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(180).IsRequired();
             entity.Property(x => x.Phone).HasMaxLength(30).IsRequired();
@@ -194,14 +194,7 @@ public sealed class PediHubDbContext(DbContextOptions<PediHubDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<ActivationToken>(entity =>
-        {
-            entity.ToTable("ActivationTokens", "pedihub");
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Code).HasMaxLength(30).IsRequired();
-            entity.HasIndex(x => x.Code).IsUnique();
-        });
-        
+
         modelBuilder.Entity<Coupon>(entity =>
         {
             entity.ToTable("Coupons", "pedihub");

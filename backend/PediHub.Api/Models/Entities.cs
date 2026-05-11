@@ -15,7 +15,7 @@ public static class DomainRules
     public static readonly string[] Channels = ["ifood", "whatsapp", "site", "balcao"];
     public static readonly string[] Payments = ["pix", "credito", "debito", "dinheiro"];
     public static readonly string[] IntegrationStatuses = ["ativo", "em_breve", "disponivel"];
-    public static readonly string[] MerchantPlans = ["Starter", "Pro", "Enterprise"];
+
     public static readonly string[] MerchantStatuses = ["ativo", "trial", "inativo"];
 }
 
@@ -25,7 +25,7 @@ public sealed class Merchant
     public string CompanyName { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string Cnpj { get; set; } = string.Empty;
-    public string Plan { get; set; } = "Starter";
+
     public string Status { get; set; } = "trial";
     public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
@@ -48,7 +48,7 @@ public sealed class Merchant
     public decimal DeliveryFeeBase { get; set; } = 8m;
     public decimal MinimumOrder { get; set; } = 25m;
     public bool AutoAcceptOrders { get; set; }
-    public DateTimeOffset ValidUntil { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastAccessAt { get; set; }
 
@@ -220,13 +220,3 @@ public class MerchantTable
     public string QrCodeUrl { get; set; } = string.Empty;
 }
 
-public sealed class ActivationToken
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string Code { get; set; } = string.Empty;
-    public int Months { get; set; }
-    public bool IsUsed { get; set; }
-    public Guid? UsedByMerchantId { get; set; }
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    public DateTimeOffset? UsedAt { get; set; }
-}

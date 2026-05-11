@@ -23,7 +23,6 @@ type NavItem = {
     | "/app/integracoes"
     | "/app/relatorios"
     | "/app/clientes"
-    | "/app/plano"
     | "/app/configuracoes";
   label: string;
   icon: typeof LayoutDashboard;
@@ -37,7 +36,6 @@ const navItems: NavItem[] = [
   { to: "/app/integracoes", label: "Integracoes", icon: Plug },
   { to: "/app/relatorios", label: "Relatorios", icon: BarChart3 },
   { to: "/app/clientes", label: "Clientes", icon: Users },
-  { to: "/app/plano", label: "Seu plano", icon: Crown },
   { to: "/app/configuracoes", label: "Configuracoes", icon: Settings },
 ];
 

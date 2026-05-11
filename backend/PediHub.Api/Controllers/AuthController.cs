@@ -45,7 +45,7 @@ public sealed class AuthController(
             CompanyName = request.CompanyName.Trim(),
             Slug = slug,
             Cnpj = cnpj,
-            Plan = "Starter",
+
             Status = "trial",
             Email = email,
             Phone = request.Phone.Trim(),
@@ -57,7 +57,7 @@ public sealed class AuthController(
             City = request.City.Trim(),
             State = request.State.Trim().ToUpperInvariant(),
             ZipCode = request.ZipCode.Trim(),
-            ValidUntil = DateTimeOffset.UtcNow.AddDays(7),
+
         };
 
         var user = new User
@@ -128,7 +128,7 @@ public sealed class AuthController(
 
     private static AuthUserDto ToUserDto(User user, Merchant merchant)
     {
-        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Plan, merchant.Status, merchant.LogoUrl ?? "", user.Role, merchant.ValidUntil, merchant.Slug);
+        return new AuthUserDto(user.Id, merchant.Id, user.FullName, user.Email, merchant.CompanyName, merchant.Status, merchant.LogoUrl ?? "", user.Role, merchant.Slug);
     }
 
 }

@@ -24,11 +24,9 @@ public sealed record AuthUserDto(
     string FullName,
     string Email,
     string MerchantName,
-    string Plan,
     string Status,
     string LogoUrl,
     string Role,
-    DateTimeOffset ValidUntil,
     string Slug);
 
 public sealed record AuthResponse(string Token, DateTimeOffset ExpiresAt, AuthUserDto User);
@@ -89,7 +87,6 @@ public sealed record OrderDetailDto(
 
 public sealed record DashboardSummaryDto(
     string MerchantName,
-    string Plan,
     DashboardStatsDto Stats,
     IReadOnlyList<SalesPointDto> SalesByDay,
     IReadOnlyList<HourPointDto> OrdersByHour,
@@ -138,7 +135,6 @@ public sealed record ProductDto(
 public sealed record CustomerSummaryDto(
     Guid Id,
     string Company,
-    string Plan,
     string Status,
     DateTimeOffset? LastAccessAt,
     DateTimeOffset SignupDate);
@@ -209,26 +205,11 @@ public sealed record IntegrationDto(
     string Status,
     string Emoji);
 
-public sealed record ActivateTokenRequest(string Code);
-
-public sealed record AdminMerchantDto(
     Guid Id,
     string CompanyName,
     string Cnpj,
-    string Plan,
     string Status,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset ValidUntil);
-
-public sealed record ActivationTokenDto(
-    Guid Id,
-    string Code,
-    int Months,
-    bool IsUsed,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? UsedAt);
-
-public sealed record GenerateTokenRequest(int Months);
+    DateTimeOffset CreatedAt);
 
 public sealed record StorePublicDto(
     Guid Id,

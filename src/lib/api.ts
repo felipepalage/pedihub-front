@@ -17,10 +17,8 @@ export interface AuthUser {
   fullName: string;
   email: string;
   merchantName: string;
-  plan: string;
   logoUrl?: string | null;
   role: string;
-  validUntil: string;
   slug: string;
 }
 
@@ -121,7 +119,6 @@ export interface OrderDetail extends OrderListItem {
 
 export interface DashboardSummary {
   merchantName: string;
-  plan: string;
   stats: DashboardStats;
   salesByDay: SalesPoint[];
   ordersByHour: HourPoint[];
@@ -172,7 +169,6 @@ export interface ProductPayload {
 export interface CustomerSummary {
   id: string;
   company: string;
-  plan: "Starter" | "Pro" | "Enterprise";
   status: "ativo" | "trial" | "inativo";
   lastAccessAt?: string | null;
   signupDate: string;
@@ -538,32 +534,12 @@ export function validateCoupon(slug: string, code: string) {
   return apiRequest<Coupon>(`/api/store/${slug}/coupons/${code}`);
 }
 
-// Admin & Subscriptions
-
 export interface AdminMerchant {
   id: string;
   companyName: string;
   cnpj: string;
-  plan: string;
   status: string;
   createdAt: string;
-  validUntil: string;
-}
-
-export interface ActivationToken {
-  id: string;
-  code: string;
-  months: number;
-  isUsed: boolean;
-  createdAt: string;
-  usedAt?: string | null;
-}
-
-export function activateSubscription(code: string) {
-  return apiRequest<{ message: string; validUntil: string }>("/api/subscription/activate", {
-    method: "POST",
-    body: JSON.stringify({ code }),
-  });
 }
 
 export function getAdminMerchants() {
@@ -573,17 +549,6 @@ export function getAdminMerchants() {
 export function deleteAdminMerchant(id: string) {
   return apiRequest<void>(`/api/admin/merchants/${id}`, {
     method: "DELETE",
-  });
-}
-
-export function getAdminTokens() {
-  return apiRequest<ActivationToken[]>("/api/admin/tokens");
-}
-
-export function createAdminToken(months: number) {
-  return apiRequest<ActivationToken>("/api/admin/tokens", {
-    method: "POST",
-    body: JSON.stringify({ months }),
   });
 }
 

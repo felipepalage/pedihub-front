@@ -26,7 +26,7 @@ public sealed class AdminController(PediHubDbContext dbContext) : ControllerBase
 
         var merchants = await dbContext.Merchants
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new AdminMerchantDto(x.Id, x.CompanyName, x.Cnpj, x.Plan, x.Status, x.CreatedAt, x.ValidUntil))
+            .Select(x => new AdminMerchantDto(x.Id, x.CompanyName, x.Cnpj, x.Status, x.CreatedAt))
             .ToListAsync(cancellationToken);
 
         return Ok(merchants);
@@ -52,35 +52,7 @@ public sealed class AdminController(PediHubDbContext dbContext) : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("tokens")]
-    public async Task<IActionResult> GetTokens(CancellationToken cancellationToken)
-    {
-        if (!IsSuperAdmin()) return Forbid();
 
-        var tokens = await dbContext.ActivationTokens
-            .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new ActivationTokenDto(x.Id, x.Code, x.Months, x.IsUsed, x.CreatedAt, x.UsedAt))
-            .ToListAsync(cancellationToken);
-
-        return Ok(tokens);
-    }
-
-    [HttpPost("tokens")]
-    public async Task<IActionResult> CreateToken([FromBody] GenerateTokenRequest request, CancellationToken cancellationToken)
-    {
-        if (!IsSuperAdmin()) return Forbid();
-
-        var token = new ActivationToken
-        {
-            Months = request.Months,
-            Code = GenerateRandomCode()
-        };
-
-        dbContext.ActivationTokens.Add(token);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Ok(new ActivationTokenDto(token.Id, token.Code, token.Months, token.IsUsed, token.CreatedAt, token.UsedAt));
-    }
 
     [HttpPost("fix-slugs")]
     public async Task<IActionResult> FixSlugs(CancellationToken cancellationToken)

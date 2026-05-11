@@ -4,7 +4,6 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppTopbar } from "@/components/layout/AppTopbar";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/lib/auth";
-import { SubscriptionLockScreen } from "@/components/layout/SubscriptionLockScreen";
 
 export const Route = createFileRoute("/app")({
   component: AppLayout,
@@ -32,12 +31,7 @@ function AppLayout() {
     return null;
   }
 
-  const { user } = useAuth();
-  const isExpired = user && user.role !== "SuperAdmin" && new Date(user.validUntil) < new Date();
 
-  if (isExpired) {
-    return <SubscriptionLockScreen />;
-  }
 
   return (
     <div className="flex min-h-screen bg-muted/30">
