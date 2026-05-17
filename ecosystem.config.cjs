@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "pedihub",
-      script: ".output/server/index.mjs",
+      script: "server-start.mjs",
       cwd: "/var/www/pedihub-app",
       env: {
         NODE_ENV: "production",
