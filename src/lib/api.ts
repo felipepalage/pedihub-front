@@ -213,6 +213,7 @@ export interface SettingsPayload {
   averagePrepMinutes: number;
   deliveryFeeBase: number;
   minimumOrder: number;
+  deliveryRadius?: number;
   autoAcceptOrders: boolean;
   primaryColor: string;
   logoUrl: string;
@@ -565,9 +566,16 @@ export interface StorePublic {
   openingHours: string;
   deliveryFeeBase: number;
   minimumOrder: number;
+  deliveryRadius?: number;
   pixKey: string;
   status: string;
   mercadoPagoActive: boolean;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  averagePrepMinutes?: number;
 }
 
 export interface StoreProduct {

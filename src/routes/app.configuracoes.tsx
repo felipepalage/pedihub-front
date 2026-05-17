@@ -32,25 +32,27 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
-import { 
-  MessageCircle, 
-  Eye, 
-  Globe, 
-  Copy, 
-  Check, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  User, 
-  Building2, 
-  Gift, 
-  QrCode, 
-  Award, 
-  Plus, 
+import { Slider } from "@/components/ui/slider";
+import {
+  MessageCircle,
+  Eye,
+  Globe,
+  Copy,
+  Check,
+  MapPin,
+  Phone,
+  Mail,
+  User,
+  Building2,
+  Gift,
+  QrCode,
+  Award,
+  Plus,
   Trash,
   Ticket,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Navigation
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/configuracoes")({
@@ -72,6 +74,7 @@ type FormState = {
   averagePrepMinutes: string;
   deliveryFeeBase: string;
   minimumOrder: string;
+  deliveryRadius: number;
   autoAcceptOrders: boolean;
   primaryColor: string;
   logoUrl: string;
@@ -97,10 +100,13 @@ const initialForm: FormState = {
   averagePrepMinutes: "35",
   deliveryFeeBase: "0",
   minimumOrder: "0",
+  deliveryRadius: 5,
   autoAcceptOrders: false,
   primaryColor: "#E53935",
   logoUrl: "",
   bannerUrl: "",
+  pixKey: "",
+  mercadoPagoAccessToken: "",
   whatsAppNumber: "",
   slug: "",
 };
@@ -142,6 +148,7 @@ function SettingsPage() {
           averagePrepMinutes: String(settings.averagePrepMinutes),
           deliveryFeeBase: String(settings.deliveryFeeBase),
           minimumOrder: String(settings.minimumOrder),
+          deliveryRadius: settings.deliveryRadius ?? 5,
           pixKey: settings.pixKey || "",
           mercadoPagoAccessToken: settings.mercadoPagoAccessToken || "",
           whatsAppNumber: settings.whatsAppNumber || "",
@@ -163,6 +170,7 @@ function SettingsPage() {
         averagePrepMinutes: parseInt(form.averagePrepMinutes),
         deliveryFeeBase: parseFloat(form.deliveryFeeBase),
         minimumOrder: parseFloat(form.minimumOrder),
+        deliveryRadius: form.deliveryRadius,
       });
       toast.success("Configuracoes salvas!");
     } catch (err) {
@@ -432,6 +440,33 @@ function SettingsPage() {
               <Field label="Taxa de Entrega (R$)"><Input type="number" step="0.5" value={form.deliveryFeeBase} onChange={e => setForm({...form, deliveryFeeBase: e.target.value})} /></Field>
               <Field label="Pedido Mínimo (R$)"><Input type="number" step="0.5" value={form.minimumOrder} onChange={e => setForm({...form, minimumOrder: e.target.value})} /></Field>
            </div>
+
+           <div className="rounded-2xl border bg-muted/20 p-4 space-y-4">
+             <div className="flex items-center justify-between">
+               <div className="flex items-center gap-2">
+                 <Navigation className="h-4 w-4 text-primary" />
+                 <Label className="text-base font-bold">Raio de Entrega</Label>
+               </div>
+               <span className="rounded-full bg-primary px-3 py-1 text-sm font-black text-primary-foreground">
+                 {form.deliveryRadius} km
+               </span>
+             </div>
+             <p className="text-sm text-muted-foreground">Distância máxima que você atende com delivery. Exibido na sua loja para os clientes.</p>
+             <Slider
+               min={1}
+               max={50}
+               step={1}
+               value={[form.deliveryRadius]}
+               onValueChange={([v]) => setForm({...form, deliveryRadius: v})}
+               className="py-2"
+             />
+             <div className="flex justify-between text-xs text-muted-foreground">
+               <span>1 km</span>
+               <span>25 km</span>
+               <span>50 km</span>
+             </div>
+           </div>
+
            <div className="flex items-center justify-between rounded-xl border p-4 bg-muted/20">
              <div>
                <Label className="text-base font-bold">Aceite Automático</Label>

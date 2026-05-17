@@ -12,14 +12,14 @@ import {
   type Coupon
 } from "@/lib/api";
 import { isValidPhone } from "@/lib/validators";
-import { 
-  ShoppingBag, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  ChevronRight, 
-  Plus, 
-  Minus, 
+import {
+  ShoppingBag,
+  Clock,
+  MapPin,
+  Phone,
+  ChevronRight,
+  Plus,
+  Minus,
   X,
   CheckCircle2,
   AlertCircle,
@@ -32,7 +32,10 @@ import {
   ShoppingBasket,
   Ticket,
   Percent,
-  Globe
+  Globe,
+  Navigation,
+  ExternalLink,
+  Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -358,6 +361,11 @@ function StorePage() {
               <div className="flex items-center gap-1.5">
                 <ShoppingBag className="h-4 w-4" /> Mínimo: {fmt.format(store.minimumOrder)}
               </div>
+              {store.deliveryRadius && (
+                <div className="flex items-center gap-1.5">
+                  <Navigation className="h-4 w-4" /> Raio: {store.deliveryRadius} km
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -554,10 +562,10 @@ function StorePage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="zipCode">CEP</Label>
-                    <Input 
-                      id="zipCode" 
-                      placeholder="00000-000" 
-                      value={formData.zipCode} 
+                    <Input
+                      id="zipCode"
+                      placeholder="00000-000"
+                      value={formData.zipCode}
                       onChange={e => {
                         const val = e.target.value;
                         setFormData(p => ({ ...p, zipCode: val }));
@@ -588,6 +596,53 @@ function StorePage() {
                   <Label htmlFor="complement">Complemento / Referência</Label>
                   <Input id="complement" placeholder="Ex: Apto 22, Bloco B" value={formData.complement} onChange={e => setFormData(p => ({ ...p, complement: e.target.value }))} />
                 </div>
+                {store.deliveryRadius && (
+                  <div className="flex items-center gap-2 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-primary">
+                    <Navigation className="h-3.5 w-3.5 shrink-0" />
+                    <span>Entregamos em até <strong>{store.deliveryRadius} km</strong> de distância da loja.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pickup Info (if pickup) */}
+            {formData.type === "pickup" && (store.street || store.city) && (
+              <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                    <StoreIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Endereço para Retirada</p>
+                    <p className="text-xs text-muted-foreground">Retire seu pedido diretamente na loja</p>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-background border p-3 space-y-1">
+                  <p className="font-semibold text-sm">
+                    {[store.street, store.number].filter(Boolean).join(", ")}
+                  </p>
+                  {store.neighborhood && (
+                    <p className="text-sm text-muted-foreground">{store.neighborhood}</p>
+                  )}
+                  {store.city && (
+                    <p className="text-sm text-muted-foreground">{store.city}{store.state ? ` - ${store.state}` : ""}</p>
+                  )}
+                </div>
+                {store.averagePrepMinutes && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Tempo de preparo estimado: <strong>{store.averagePrepMinutes} minutos</strong></span>
+                  </div>
+                )}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([store.street, store.number, store.neighborhood, store.city].filter(Boolean).join(", "))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Ver no Google Maps
+                </a>
               </div>
             )}
 

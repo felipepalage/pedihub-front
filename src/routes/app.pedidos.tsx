@@ -390,68 +390,84 @@ function OrdersPage() {
 }
 
 function printOrder(order: Pick<OrderListItem, "number" | "customerName" | "total" | "status" | "channel" | "payment" | "time"> | OrderDetail) {
-  const popup = window.open("", "_blank", "width=420,height=640");
-  if (!popup) {
-    return;
-  }
+  const popup = window.open("", "_blank", "width=480,height=700");
+  if (!popup) return;
 
-  popup.document.write(`
-    <html>
-      <head>
-        <title>Pedido #${order.number}</title>
-        <style>
-          @page { margin: 0; }
-          body { font-family: 'Courier New', Courier, monospace; width: 80mm; padding: 10mm; font-size: 12px; color: #000; position: relative; }
-          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 40px; color: rgba(0,0,0,0.05); font-weight: 900; z-index: -1; white-space: nowrap; }
-          .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-          .section { margin-bottom: 10px; }
-          .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin-bottom: 4px; text-transform: uppercase; font-size: 10px; }
-          .item { display: flex; justify-content: space-between; font-weight: bold; }
-          .total { border-top: 2px solid #000; padding-top: 5px; margin-top: 5px; font-weight: 900; font-size: 16px; display: flex; justify-content: space-between; }
-          .footer { text-align: center; margin-top: 20px; font-size: 10px; opacity: 0.6; }
-          .address { border: 1px solid #000; padding: 5px; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <div class="watermark">PEDIHUB DELIVERY</div>
-        <div class="header">
-          <h1 style="margin:0; font-size: 24px;">#${order.number}</h1>
-          <p style="margin:0; font-weight: bold;">${order.customerName.split(' ')[0]}</p>
-          <p style="margin:0; font-size: 10px;">${new Date().toLocaleString('pt-BR')}</p>
-        </div>
+  const detail = "items" in order ? order as OrderDetail : null;
+  const subtotal = detail ? detail.total - detail.deliveryFee + (detail.couponDiscount || 0) : order.total;
+  const addressLine = detail
+    ? detail.type === "pickup"
+      ? "Retirada no Local"
+      : [detail.street, detail.addressNumber, detail.neighborhood, detail.complement].filter(Boolean).join(", ")
+    : "";
 
-        <div class="section">
-          <div class="section-title">Itens do Pedido</div>
-          ${('items' in order ? order.items : []).map(item => `
-            <div class="item">
-              <span>${item.qty}x ${item.name}</span>
-              <span>${(item.qty * item.price).toFixed(2)}</span>
-            </div>
-          `).join('')}
-        </div>
+  const itemsHtml = (detail?.items ?? [])
+    .map(
+      (item) =>
+        `<tr>
+          <td style="padding:5px 0;border-bottom:1px dashed #ddd">${item.qty}x ${item.name}</td>
+          <td style="padding:5px 0;border-bottom:1px dashed #ddd;text-align:right;white-space:nowrap">R$ ${(item.qty * item.price).toFixed(2)}</td>
+        </tr>`
+    )
+    .join("");
 
-        <div class="section">
-          <div class="total">
-            <span>TOTAL</span>
-            <span>R$ ${order.total.toFixed(2)}</span>
-          </div>
-          <p style="text-align: right; margin: 0; font-size: 10px;">Pagamento: ${paymentLabels[order.payment as any] || order.payment}</p>
-        </div>
+  popup.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nota Fiscal - Pedido #${order.number}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Courier New', monospace; max-width: 380px; margin: 0 auto; padding: 20px 16px; color: #111; background: #fff; font-size: 13px; }
+    .brand { text-align: center; font-size: 18px; font-weight: 900; letter-spacing: -1px; }
+    .order-badge { text-align: center; background: #111; color: #fff; display: inline-block; padding: 3px 14px; border-radius: 99px; font-size: 12px; font-weight: bold; margin: 6px auto; }
+    hr { border: none; border-top: 1.5px dashed #ccc; margin: 10px 0; }
+    .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+    .row.bold { font-weight: 900; font-size: 15px; padding-top: 8px; border-top: 2px solid #111; margin-top: 6px; }
+    .muted { color: #777; }
+    .section-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #999; margin: 10px 0 4px; }
+    .center { text-align: center; }
+    .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    @media print { button { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="brand">COMANDA / NOTA FISCAL</div>
+  <div class="center"><span class="order-badge">PEDIDO #${order.number}</span></div>
+  <div class="center muted" style="font-size:11px;margin-bottom:6px">${new Date().toLocaleString("pt-BR")}</div>
+  <div class="center muted" style="font-size:11px">${channelLabels[order.channel] ?? order.channel}</div>
+  <hr />
 
-        <div class="address">
-          <div class="section-title">Endereco de Entrega</div>
-          <p style="margin:0;">${('address' in order ? order.address : 'N/A')}</p>
-          <p style="margin:5px 0 0 0; font-weight: bold;">Tel: ${('customerPhone' in order ? order.customerPhone : 'N/A')}</p>
-        </div>
+  <p class="section-lbl">Cliente</p>
+  <p style="font-weight:bold">${order.customerName}</p>
+  ${detail ? `<p class="muted" style="font-size:11px">${detail.customerPhone}</p>` : ""}
 
-        <div class="footer">
-          Obrigado pela preferencia!<br>
-          <b>Powered by PediHub Digital</b>
-        </div>
-      </body>
-    </html>
-  `);
+  ${addressLine ? `<p class="section-lbl">Endereço / Retirada</p><p style="font-size:12px">${addressLine}</p>` : ""}
+
+  <hr />
+  <p class="section-lbl">Itens</p>
+  <table>
+    <tbody>
+      ${itemsHtml || `<tr><td colspan="2" style="padding:6px 0" class="muted">—</td></tr>`}
+    </tbody>
+  </table>
+
+  <div style="margin-top:12px">
+    <div class="row muted"><span>Subtotal</span><span>R$ ${subtotal.toFixed(2)}</span></div>
+    ${detail && detail.deliveryFee > 0 ? `<div class="row muted"><span>Taxa de entrega</span><span>R$ ${detail.deliveryFee.toFixed(2)}</span></div>` : ""}
+    ${detail && detail.couponDiscount > 0 ? `<div class="row" style="color:#16a34a"><span>Desconto${detail.couponCode ? ` (${detail.couponCode})` : ""}</span><span>-R$ ${detail.couponDiscount.toFixed(2)}</span></div>` : ""}
+    <div class="row bold"><span>TOTAL</span><span>R$ ${order.total.toFixed(2)}</span></div>
+    <div class="row muted" style="margin-top:4px"><span>Pagamento</span><span>${paymentLabels[order.payment as any] || order.payment}${detail?.changeFor ? ` (troco R$ ${detail.changeFor.toFixed(2)})` : ""}</span></div>
+  </div>
+
+  <hr />
+  <div class="footer">
+    <p>Obrigado pela preferencia!</p>
+    <p style="margin-top:3px">Gerenciado via <strong>PEDIHUB</strong></p>
+  </div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`);
   popup.document.close();
-  popup.focus();
-  popup.print();
 }

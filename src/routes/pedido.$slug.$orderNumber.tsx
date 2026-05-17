@@ -6,15 +6,17 @@ import {
   type OrderDetail, 
   type StorePublic 
 } from "@/lib/api";
-import { 
-  CheckCircle2, 
-  Clock, 
-  Truck, 
-  Store as StoreIcon, 
-  ChefHat, 
+import {
+  CheckCircle2,
+  Clock,
+  Truck,
+  Store as StoreIcon,
+  ChefHat,
   PackageCheck,
   ArrowLeft,
-  MessageCircle
+  MessageCircle,
+  Printer,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,107 @@ const fmt = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+function printInvoice(order: OrderDetail, store: StorePublic) {
+  const subtotal = order.total - order.deliveryFee + (order.couponDiscount || 0);
+  const itemsHtml = order.items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:6px 0;border-bottom:1px dashed #eee">${item.qty}x ${item.name}</td>
+        <td style="padding:6px 0;border-bottom:1px dashed #eee;text-align:right">${fmt.format(item.price * item.qty)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const address =
+    order.type === "delivery"
+      ? `${order.street}, ${order.addressNumber}${order.neighborhood ? " - " + order.neighborhood : ""}${order.complement ? " - " + order.complement : ""}`
+      : "Retirada no Local";
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Comprovante #${order.number} - ${store.companyName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Courier New', monospace; max-width: 380px; margin: 0 auto; padding: 24px 16px; color: #111; background: #fff; }
+    .logo { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: -1px; margin-bottom: 4px; }
+    .divider { border: none; border-top: 2px dashed #ccc; margin: 12px 0; }
+    .center { text-align: center; }
+    .small { font-size: 11px; color: #666; }
+    .badge { display: inline-block; background: #111; color: #fff; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; }
+    .total-row td { font-weight: 900; font-size: 16px; padding-top: 10px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin: 10px 0 4px; }
+    .footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 24px; }
+    @media print { body { padding: 0; } button { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="logo">${store.companyName}</div>
+  <div class="center small" style="margin-bottom:8px">${store.phone || ""}</div>
+  <hr class="divider" />
+  <div class="center">
+    <div class="badge">PEDIDO #${order.number}</div>
+    <div class="small" style="margin-top:6px">${fmtDate(order.orderedAt)}</div>
+  </div>
+  <hr class="divider" />
+
+  <p class="section-title">Cliente</p>
+  <p style="font-weight:bold">${order.customerName}</p>
+  <p class="small">${order.customerPhone}</p>
+
+  <p class="section-title">Entrega</p>
+  <p style="font-size:13px">${address}</p>
+
+  <hr class="divider" />
+  <p class="section-title">Itens do Pedido</p>
+  <table>
+    <tbody>
+      ${itemsHtml}
+      <tr><td style="padding:6px 0" class="small">Subtotal</td><td style="text-align:right" class="small">${fmt.format(subtotal)}</td></tr>
+      ${order.deliveryFee > 0 ? `<tr><td style="padding:4px 0" class="small">Taxa de entrega</td><td style="text-align:right" class="small">${fmt.format(order.deliveryFee)}</td></tr>` : ""}
+      ${order.couponDiscount > 0 ? `<tr><td style="padding:4px 0" class="small">Desconto${order.couponCode ? ` (${order.couponCode})` : ""}</td><td style="text-align:right;color:#16a34a" class="small">-${fmt.format(order.couponDiscount)}</td></tr>` : ""}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td style="padding-top:10px;border-top:2px solid #111">TOTAL</td>
+        <td style="padding-top:10px;border-top:2px solid #111;text-align:right">${fmt.format(order.total)}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <hr class="divider" />
+  <p class="section-title">Pagamento</p>
+  <p style="font-size:13px">${paymentLabels[order.payment as any] || order.payment}${order.changeFor ? ` — Troco para ${fmt.format(order.changeFor)}` : ""}</p>
+
+  <div class="footer">
+    <hr class="divider" />
+    <p>Obrigado pela preferência!</p>
+    <p style="margin-top:4px">Pedido gerado via <strong>PEDIHUB</strong></p>
+  </div>
+
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=480,height=700");
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
+}
 
 function OrderTrackingPage() {
   const { slug, orderNumber } = Route.useParams();
@@ -205,6 +308,14 @@ function OrderTrackingPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3">
+          <Button
+            variant="outline"
+            className="w-full h-12 rounded-2xl"
+            onClick={() => printInvoice(order, store)}
+          >
+            <Printer className="mr-2 h-5 w-5" />
+            Imprimir Comprovante
+          </Button>
           <Button variant="outline" className="w-full h-12 rounded-2xl" asChild>
             <a href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
               <MessageCircle className="mr-2 h-5 w-5 text-green-500" />
