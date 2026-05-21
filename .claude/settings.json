@@ -15,7 +15,15 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Projetos\\\\pedihub-your-orders-centralized\\\\src\\\\routes\" -Filter \"*.tsx\")",
       "Bash(Select-Object Name)",
       "Bash(npx tsc *)",
-      "Bash(grep 'app.configuracoes\\\\|pedido.$slug')"
+      "Bash(grep 'app.configuracoes\\\\|pedido.$slug')",
+      "Bash(dir /b)",
+      "Bash(mkdir -p \"c:/Projetos/pedihub-backend\" && echo \"Pasta criada\")",
+      "Bash(cp -r \"c:/Projetos/pedihub-your-orders-centralized/backend/PediHub.Api\" \"c:/Projetos/pedihub-backend/\")",
+      "Bash(cp -r \"c:/Projetos/pedihub-your-orders-centralized/backend/PediHub.Tests\" \"c:/Projetos/pedihub-backend/\")",
+      "Bash(git rm *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Projetos"
     ]
   }
 }
