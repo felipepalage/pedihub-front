@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { channelLabels, paymentLabels, statusLabels } from "@/lib/domain";
+import { channelLabels, paymentLabels, statusLabels, getStatusLabelsForOrderType, getValidStatusesForOrderType } from "@/lib/domain";
 import {
   advanceOrder,
   getOrder,
@@ -291,11 +291,20 @@ function OrdersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {(Object.keys(statusLabels) as OrderStatus[]).map((status) => (
-                              <DropdownMenuItem key={status} onClick={() => updateStatus(order.id, status)}>
-                                Marcar como {statusLabels[status]}
-                              </DropdownMenuItem>
-                            ))}
+                            {selected?.id === order.id && selected
+                              ? getValidStatusesForOrderType(selected.type).map((status) => {
+                                  const statusLabel = getStatusLabelsForOrderType(selected.type)[status];
+                                  return (
+                                    <DropdownMenuItem key={status} onClick={() => updateStatus(order.id, status)}>
+                                      Marcar como {statusLabel}
+                                    </DropdownMenuItem>
+                                  );
+                                })
+                              : (Object.keys(statusLabels) as OrderStatus[]).map((status) => (
+                                  <DropdownMenuItem key={status} onClick={() => updateStatus(order.id, status)}>
+                                    Marcar como {statusLabels[status]}
+                                  </DropdownMenuItem>
+                                ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

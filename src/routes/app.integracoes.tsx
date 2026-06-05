@@ -360,6 +360,32 @@ function IntegrationsPage() {
         </div>
       </IntegrationCard>
 
+      {/* 99Food */}
+      <IntegrationCard
+        icon={
+          <span className="text-2xl font-black text-[#FF6B35]">99</span>
+        }
+        iconBg="bg-[#FF6B35]/10"
+        name="99Food"
+        description="Integração direta com a plataforma 99Food para receber pedidos automaticamente no painel PediHub."
+        status="em_breve"
+        badge={
+          <StatusBadge color="warning">
+            <Clock className="h-3 w-3" /> Em breve
+          </StatusBadge>
+        }
+      >
+        <div className="rounded-xl border border-warning/20 bg-warning/5 p-4 flex items-start gap-3">
+          <Info className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Integração nativa com 99Food em desenvolvimento</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Estamos trabalhando para integrar diretamente com a API do 99Food. Em breve você poderá receber e gerenciar pedidos do 99Food direto no PediHub.
+            </p>
+          </div>
+        </div>
+      </IntegrationCard>
+
       {/* Modal WhatsApp */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
         <DialogContent className="sm:max-w-md">

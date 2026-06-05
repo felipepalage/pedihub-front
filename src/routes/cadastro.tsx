@@ -25,7 +25,7 @@ export const Route = createFileRoute("/cadastro")({
       { title: "Criar conta - PEDIHUB" },
       {
         name: "description",
-        content: "Crie sua conta no PEDIHUB e centralize iFood, WhatsApp e site proprio.",
+        content: "Crie sua conta no PEDIHUB e centralize iFood, 99Food, WhatsApp e site proprio.",
       },
     ],
   }),

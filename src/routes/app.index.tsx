@@ -301,6 +301,8 @@ function channelColor(channel: string) {
   switch (channel) {
     case "ifood":
       return "var(--color-primary)";
+    case "99food":
+      return "#FF6B35";
     case "whatsapp":
       return "var(--color-success)";
     case "site":

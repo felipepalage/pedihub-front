@@ -293,6 +293,7 @@ function SettingsPage() {
           <TabsTrigger value="cupons" className="gap-2"><Ticket className="h-4 w-4" /> Cupons</TabsTrigger>
           <TabsTrigger value="fidelidade" className="gap-2"><Award className="h-4 w-4" /> Fidelidade</TabsTrigger>
           <TabsTrigger value="mesas" className="gap-2"><QrCode className="h-4 w-4" /> Mesas (QR)</TabsTrigger>
+          <TabsTrigger value="integracao" className="gap-2"><Globe className="h-4 w-4" /> Integrações API</TabsTrigger>
         </TabsList>
 
          <TabsContent value="empresa" className="mt-6 space-y-4">
@@ -694,7 +695,7 @@ function SettingsPage() {
                               <head><title>Imprimir QR - Mesa ${table.number}</title></head>
                               <body style="display:flex;flex-direction:column;align-items:center;justify-center;height:100vh;font-family:sans-serif;">
                                 <h1 style="font-size:3rem;margin-bottom:1rem;">MESA ${table.number}</h1>
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`http://localhost:5174/store/mesa/${table.id}`)}" style="width:400px;height:400px;border: 4px solid black;padding: 10px;border-radius: 20px;" />
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/store/mesa/${table.id}`)}" style="width:400px;height:400px;border: 4px solid black;padding: 10px;border-radius: 20px;" />
                                 <p style="margin-top:2rem;font-size:1.5rem;color:#666;text-align:center;">Escaneie o código<br/>para fazer seu pedido</p>
                               </body>
                             </html>
@@ -709,6 +710,74 @@ function SettingsPage() {
                       }}>Imprimir QR</Button>
                    </div>
                 ))}
+             </div>
+           </div>
+        </TabsContent>
+
+        <TabsContent value="integracao" className="mt-6 space-y-6">
+           <div className="rounded-2xl border p-6 bg-card shadow-sm">
+             <h3 className="text-lg font-bold mb-2">Acesso à API - Token de Autenticação</h3>
+             <p className="text-sm text-muted-foreground mb-6">Use seu token para fazer requisições à API do PEDIHUB. Sua senha é seu token de autenticação.</p>
+             
+             <div className="space-y-4">
+               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                 <p className="text-sm font-semibold mb-2">URL Base da API</p>
+                 <div className="flex gap-2">
+                   <input 
+                     readOnly 
+                     type="text"
+                     value={`${API_URL}`}
+                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs font-mono"
+                   />
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => {
+                       navigator.clipboard.writeText(`${API_URL}`);
+                       toast.success("URL copiada!");
+                     }}
+                   >
+                     <Copy className="h-4 w-4" />
+                   </Button>
+                 </div>
+               </div>
+
+               <div className="rounded-lg border border-warning/20 bg-warning/5 p-4">
+                 <p className="text-sm font-semibold mb-2">Autenticação (Headers)</p>
+                 <code className="text-xs bg-muted/50 p-3 rounded block font-mono overflow-x-auto mb-3">
+                   Authorization: Bearer {user?.email}
+                 </code>
+                 <p className="text-xs text-muted-foreground">Inclua este header em todas suas requisições à API.</p>
+               </div>
+
+               <div className="rounded-lg border border-success/20 bg-success/5 p-4">
+                 <p className="text-sm font-semibold mb-3">Documentação de Endpoints</p>
+                 <div className="space-y-2 text-sm">
+                   <p><strong>Listar Pedidos:</strong></p>
+                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">GET {API_URL}/api/orders</code>
+                   
+                   <p className="mt-4"><strong>Obter Detalhes do Pedido:</strong></p>
+                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">GET {API_URL}/api/orders/{'{{orderId}}'}</code>
+                   
+                   <p className="mt-4"><strong>Atualizar Status do Pedido:</strong></p>
+                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">PATCH {API_URL}/api/orders/{'{{orderId}}'}/status</code>
+                   
+                   <p className="mt-4"><strong>Criar um Pedido:</strong></p>
+                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">POST {API_URL}/api/orders</code>
+                 </div>
+                 <Button variant="outline" size="sm" className="mt-4" asChild>
+                   <a href={`${API_URL}/docs`} target="_blank" rel="noopener noreferrer">
+                     Ver Documentação Completa →
+                   </a>
+                 </Button>
+               </div>
+
+               <div className="rounded-lg border border-info/20 bg-info/5 p-4">
+                 <p className="text-sm font-semibold mb-2">Contato e Suporte</p>
+                 <p className="text-xs text-muted-foreground mb-3">Para dúvidas sobre integração da API, entre em contato com o suporte técnico:</p>
+                 <p className="text-xs"><strong>Email:</strong> dev@pedihub.com.br</p>
+                 <p className="text-xs"><strong>Telefone:</strong> +55 11 98765-4321</p>
+               </div>
              </div>
            </div>
         </TabsContent>

@@ -7,6 +7,7 @@ const styles: Record<OrderStatus, string> = {
   aceito: "bg-warning/15 text-warning border-warning/20",
   preparando: "bg-orange/15 text-orange border-orange/20",
   saiu_entrega: "bg-purple/15 text-purple border-purple/20",
+  pronto_retirada: "bg-success/15 text-success border-success/20",
   finalizado: "bg-success/10 text-success border-success/20",
   cancelado: "bg-destructive/10 text-destructive border-destructive/20",
 };

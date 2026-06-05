@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Logo } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import {
   MessageCircle,
   Truck,
   QrCode,
-  Star,
   TrendingUp,
   Clock,
   Shield,
@@ -33,7 +32,7 @@ export const Route = createFileRoute("/login")({
       {
         name: "description",
         content:
-          "Gerencie iFood, WhatsApp, site proprio e balcao em um so painel. Aumente suas vendas com o PEDIHUB.",
+          "Gerencie iFood, 99Food, WhatsApp, site proprio e balcao em um so painel. Aumente suas vendas com o PEDIHUB.",
       },
     ],
   }),
@@ -73,26 +72,8 @@ const features = [
   },
 ];
 
-const testimonials = [
-  {
-    name: "Marcos Oliveira",
-    role: "Dono de Pizzaria",
-    text: "Triplicamos os pedidos online em 2 semanas. A loja propria mudou tudo pra gente.",
-    stars: 5,
-  },
-  {
-    name: "Ana Souza",
-    role: "Hamburgueria Artesanal",
-    text: "Finalmente consigo ver todos os pedidos em um só lugar. Antes era um caos.",
-    stars: 5,
-  },
-  {
-    name: "Carlos Mendes",
-    role: "Restaurante Familiar",
-    text: "O QR Code das mesas reduziu o tempo de atendimento pela metade.",
-    stars: 5,
-  },
-];
+// Testimonials removed - replace with real customer data from API when available
+const testimonials: any[] = [];
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -102,6 +83,11 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState<"login" | "features">("login");
+  const loginFormRef = useRef<HTMLDivElement>(null);
+
+  const scrollToLogin = () => {
+    loginFormRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (ready && isAuthenticated) {
@@ -135,7 +121,7 @@ function LoginPage() {
             <Button variant="ghost" size="sm" onClick={() => setActiveTab("features")}>
               Ver funcionalidades
             </Button>
-            <Button size="sm" onClick={() => setActiveTab("login")}>
+            <Button size="sm" onClick={scrollToLogin}>
               Entrar
             </Button>
           </div>
@@ -155,7 +141,7 @@ function LoginPage() {
             <span className="text-primary"> em um so lugar</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            iFood, WhatsApp, site proprio e balcao com gestao unificada. Aumente suas vendas e pare de perder pedidos.
+            iFood, 99Food, WhatsApp, site proprio e balcao com gestao unificada. Aumente suas vendas e pare de perder pedidos.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button size="lg" className="h-14 px-8 text-base font-bold" asChild>
@@ -172,29 +158,14 @@ function LoginPage() {
         </div>
       </section>
 
-      {/* Stats Bar */}
-      <section className="border-b bg-muted/30 px-4 py-8">
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 md:grid-cols-4">
-          {[
-            { value: "+500", label: "Restaurantes" },
-            { value: "R$ 2M+", label: "Em vendas/mês" },
-            { value: "99.9%", label: "Uptime" },
-            { value: "5 min", label: "Para configurar" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <p className="text-2xl font-black text-primary md:text-3xl">{stat.value}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Stats Bar - Removed mock data */}
 
       {/* Main Content - Side by side on desktop */}
       <div className="mx-auto max-w-7xl px-4 py-16">
         <div className="grid gap-16 lg:grid-cols-2 lg:gap-24">
           {/* Left: Login Form */}
           <div className="order-2 lg:order-1">
-            <div className="sticky top-24">
+            <div className="sticky top-24" ref={loginFormRef}>
               <div className="rounded-3xl border bg-card p-8 shadow-xl">
                 <h2 className="text-2xl font-bold">Acessar painel</h2>
                 <p className="mt-1 text-muted-foreground">Entre na sua conta para gerenciar seus pedidos.</p>
@@ -288,29 +259,7 @@ function LoginPage() {
               ))}
             </div>
 
-            {/* Testimonials */}
-            <div className="space-y-4 pt-4">
-              <h3 className="font-bold text-lg">O que dizem nossos clientes</h3>
-              {testimonials.map((t) => (
-                <div key={t.name} className="rounded-2xl border bg-card p-5">
-                  <div className="flex gap-0.5 mb-3">
-                    {Array.from({ length: t.stars }).map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-sm italic text-muted-foreground">"{t.text}"</p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      {t.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Testimonials - Removed mock data, will add real testimonials from API later */}
           </div>
         </div>
       </div>
@@ -320,14 +269,14 @@ function LoginPage() {
         <div className="mx-auto max-w-2xl">
           <ChefHat className="mx-auto mb-4 h-12 w-12 opacity-80" />
           <h2 className="text-3xl font-black tracking-tight md:text-4xl">
-            Pronto para vender mais?
+            Centralize todos seus pedidos
           </h2>
           <p className="mt-4 text-lg opacity-80">
-            Junte-se a centenas de restaurantes que ja aumentaram suas vendas com o PEDIHUB.
+            Gerencie iFood, 99Food, WhatsApp, site próprio e balcão em um único painel. Aumente suas vendas.
           </p>
           <Button size="lg" variant="secondary" className="mt-8 h-14 px-10 text-base font-bold" asChild>
             <Link to="/cadastro">
-              Criar conta gratis agora
+              Começar agora
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>

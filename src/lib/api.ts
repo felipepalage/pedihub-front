@@ -5,10 +5,11 @@ export type OrderStatus =
   | "aceito"
   | "preparando"
   | "saiu_entrega"
+  | "pronto_retirada"
   | "finalizado"
   | "cancelado";
 
-export type Channel = "ifood" | "whatsapp" | "site" | "balcao";
+export type Channel = "ifood" | "99food" | "whatsapp" | "site" | "balcao";
 export type PaymentMethod = "pix" | "credito" | "debito" | "dinheiro";
 
 export interface AuthUser {
