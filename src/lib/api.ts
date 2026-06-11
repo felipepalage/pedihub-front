@@ -1,6 +1,8 @@
 import { readStoredSession } from "./session";
 
 export type OrderStatus =
+  | "aguardando_pagamento"
+  | "pago"
   | "novo"
   | "aceito"
   | "preparando"
@@ -9,7 +11,7 @@ export type OrderStatus =
   | "finalizado"
   | "cancelado";
 
-export type Channel = "ifood" | "99food" | "whatsapp" | "site" | "balcao";
+export type Channel = "ifood" | "99food" | "whatsapp" | "site" | "balcao" | "mesa";
 export type PaymentMethod = "pix" | "credito" | "debito" | "dinheiro";
 
 export interface AuthUser {
@@ -116,6 +118,8 @@ export interface OrderDetail extends OrderListItem {
   items: OrderItem[];
   couponCode?: string;
   couponDiscount: number;
+  note?: string | null;
+  cancellationReason?: string | null;
 }
 
 export interface DashboardSummary {
@@ -170,9 +174,13 @@ export interface ProductPayload {
 export interface CustomerSummary {
   id: string;
   company: string;
+  phone: string;
+  orderCount: number;
+  totalSpent: number;
+  lastOrderAt?: string | null;
+  signupDate: string;
   status: "ativo" | "trial" | "inativo";
   lastAccessAt?: string | null;
-  signupDate: string;
 }
 
 export interface ReportSummaryBlock {
@@ -191,12 +199,20 @@ export interface TopProduct {
   revenue: number;
 }
 
+export interface ChannelBreakdownItem {
+  channel: Channel;
+  orders: number;
+  revenue: number;
+  percentage?: number;
+}
+
 export interface ReportsResponse {
   summary: ReportSummaryBlock[];
   monthlySales: MonthlyPoint[];
   ordersByHour: HourPoint[];
   topProducts: TopProduct[];
   weeklySales: SalesPoint[];
+  channelBreakdown?: ChannelBreakdownItem[];
 }
 
 export interface SettingsPayload {
@@ -221,6 +237,13 @@ export interface SettingsPayload {
   bannerUrl: string;
   whatsAppNumber: string;
   slug: string;
+  pixKey?: string;
+  efiClientId?: string;
+  efiClientSecret?: string;
+  efiSandbox?: boolean;
+  validUntil?: string;
+  subscriptionStatus?: string;
+  isOpen?: boolean;
 }
 
 export type Settings = SettingsPayload;
@@ -243,7 +266,13 @@ export class ApiError extends Error {
   }
 }
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
+
+export function getImageUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http") || path.startsWith("data:")) return path;
+  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 async function apiRequest<T>(path: string, init?: RequestInit, expectBlob = false): Promise<T> {
   const session = readStoredSession();
@@ -410,6 +439,20 @@ export function advanceOrder(id: string) {
   });
 }
 
+export function cancelOrder(id: string, reason?: string) {
+  return apiRequest<OrderDetail>(`/api/orders/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function setStoreOpen(isOpen: boolean) {
+  return apiRequest<{ isOpen: boolean }>("/api/settings/store-status", {
+    method: "PATCH",
+    body: JSON.stringify({ isOpen }),
+  });
+}
+
 export function getProducts(params?: { category?: string; search?: string }) {
   return apiRequest<Product[]>(`/api/products${toQueryString(params ?? {})}`);
 }
@@ -450,12 +493,12 @@ export function getCustomers(search?: string) {
   return apiRequest<CustomerSummary[]>(`/api/customers${toQueryString({ search })}`);
 }
 
-export function getReports() {
-  return apiRequest<ReportsResponse>("/api/reports");
+export function getReports(params?: { from?: string; to?: string }) {
+  return apiRequest<ReportsResponse>(`/api/reports${toQueryString(params ?? {})}`);
 }
 
-export function downloadReportsCsv() {
-  return apiRequest<Blob>("/api/reports/export/csv", undefined, true);
+export function downloadReportsCsv(params?: { from?: string; to?: string }) {
+  return apiRequest<Blob>(`/api/reports/export/csv${toQueryString(params ?? {})}`, undefined, true);
 }
 
 export function getSettings() {
@@ -540,8 +583,19 @@ export interface AdminMerchant {
   id: string;
   companyName: string;
   cnpj: string;
+  plan: string;
   status: string;
   createdAt: string;
+  validUntil: string;
+}
+
+export interface ActivationToken {
+  id: string;
+  code: string;
+  months: number;
+  isUsed: boolean;
+  createdAt: string;
+  usedAt?: string | null;
 }
 
 export function getAdminMerchants() {
@@ -551,6 +605,24 @@ export function getAdminMerchants() {
 export function deleteAdminMerchant(id: string) {
   return apiRequest<void>(`/api/admin/merchants/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function getAdminTokens() {
+  return apiRequest<ActivationToken[]>("/api/admin/tokens");
+}
+
+export function createAdminToken(months: number) {
+  return apiRequest<ActivationToken>("/api/admin/tokens", {
+    method: "POST",
+    body: JSON.stringify({ months }),
+  });
+}
+
+export function activateSubscription(code: string) {
+  return apiRequest<{ message: string; validUntil: string }>("/api/subscription/activate", {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -571,12 +643,14 @@ export interface StorePublic {
   pixKey: string;
   status: string;
   mercadoPagoActive: boolean;
+  efiActive: boolean;
   street?: string;
   number?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
   averagePrepMinutes?: number;
+  isOpen?: boolean;
 }
 
 export interface StoreProduct {
@@ -593,14 +667,16 @@ export interface StoreCartItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  observation?: string;
 }
 
 export interface PlaceOrderPayload {
   customerName: string;
   customerPhone: string;
-  type: "delivery" | "pickup";
-  payment: "pix" | "cartao" | "dinheiro" | "mercado_pago_online";
+  type: "delivery" | "pickup" | "mesa";
+  payment: "pix" | "cartao" | "dinheiro";
   changeFor?: number;
+  tableNumber?: string;
   zipCode?: string;
   street?: string;
   addressNumber?: string;
@@ -611,6 +687,7 @@ export interface PlaceOrderPayload {
   referencePoint?: string;
   items: StoreCartItem[];
   couponCode?: string;
+  note?: string;
 }
 
 export function getStoreInfo(slug: string) {
@@ -625,11 +702,40 @@ export function getStoreOrder(slug: string, orderNumber: number) {
   return apiRequest<OrderDetail>(`/api/store/${slug}/orders/${orderNumber}`);
 }
 
+export interface PlaceOrderResponse {
+  message: string;
+  orderNumber: number;
+  checkoutUrl?: string;
+  pixQrCodeBase64?: string;
+  pixCopyPaste?: string;
+  txid?: string;
+}
+
 export function placeStoreOrder(slug: string, payload: PlaceOrderPayload) {
-  return apiRequest<{ message: string; orderNumber: number; checkoutUrl?: string }>(`/api/store/${slug}/orders`, {
+  return apiRequest<PlaceOrderResponse>(`/api/store/${slug}/orders`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export interface CustomerOrderHistory {
+  number: number;
+  total: number;
+  status: OrderStatus;
+  orderedAt: string;
+  items: { name: string; qty: number; price: number }[];
+}
+
+export interface CustomerHistory {
+  name: string;
+  phone: string;
+  totalOrders: number;
+  totalSpent: number;
+  orders: CustomerOrderHistory[];
+}
+
+export function getCustomerHistory(phone: string) {
+  return apiRequest<CustomerHistory>(`/api/orders/customer/${encodeURIComponent(phone)}`);
 }
 
 

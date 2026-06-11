@@ -8,17 +8,19 @@ import {
   Users,
   Settings,
   LogOut,
-  Crown,
+  ChefHat,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { getImageUrl } from "@/lib/api";
 import { ShieldAlert } from "lucide-react";
 
 type NavItem = {
   to:
     | "/app"
     | "/app/pedidos"
+    | "/app/kds"
     | "/app/catalogo"
     | "/app/integracoes"
     | "/app/relatorios"
@@ -27,25 +29,20 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
+  onlyMerchant?: boolean;
+  onlySuperAdmin?: boolean;
 };
 
 const navItems: NavItem[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { to: "/app/kds", label: "Cozinha (KDS)", icon: ChefHat, onlyMerchant: true },
   { to: "/app/catalogo", label: "Catalogo", icon: Package },
   { to: "/app/integracoes", label: "Integracoes", icon: Plug },
   { to: "/app/relatorios", label: "Relatorios", icon: BarChart3 },
-  { to: "/app/clientes", label: "Clientes", icon: Users },
+  { to: "/app/clientes", label: "Clientes", icon: Users, onlySuperAdmin: true },
   { to: "/app/configuracoes", label: "Configuracoes", icon: Settings },
 ];
-
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
-
-function getImageUrl(path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-}
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -77,7 +74,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         )}
 
         {navItems
-          .filter(item => item.to !== "/app/clientes" || user?.role === "SuperAdmin")
+          .filter(item => {
+            if (item.onlySuperAdmin) return user?.role === "SuperAdmin";
+            if (item.onlyMerchant) return user?.role !== "SuperAdmin";
+            return true;
+          })
           .map((item) => {
           const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           const Icon = item.icon;

@@ -22,6 +22,7 @@ import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
 import { Route as AppCatalogoRouteImport } from './routes/app.catalogo'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as AppKdsRouteImport } from './routes/app.kds'
 import { Route as PedidoSlugOrderNumberRouteImport } from './routes/pedido.$slug.$orderNumber'
 
 const LoginRoute = LoginRouteImport.update({
@@ -89,6 +90,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKdsRoute = AppKdsRouteImport.update({
+  id: '/kds',
+  path: '/kds',
+  getParentRoute: () => AppRoute,
+} as any)
 const PedidoSlugOrderNumberRoute = PedidoSlugOrderNumberRouteImport.update({
   id: '/pedido/$slug/$orderNumber',
   path: '/pedido/$slug/$orderNumber',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
+    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
+    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
+    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
@@ -295,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/kds': {
+      id: '/app/kds'
+      path: '/kds'
+      fullPath: '/app/kds'
+      preLoaderRoute: typeof AppKdsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/pedido/$slug/$orderNumber': {
       id: '/pedido/$slug/$orderNumber'
       path: '/pedido/$slug/$orderNumber'
@@ -307,6 +326,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppKdsRoute: typeof AppKdsRoute
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppClientesRoute: typeof AppClientesRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
@@ -318,6 +338,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppKdsRoute: AppKdsRoute,
   AppCatalogoRoute: AppCatalogoRoute,
   AppClientesRoute: AppClientesRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,

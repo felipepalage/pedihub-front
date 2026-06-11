@@ -1,0 +1,20 @@
+{
+  "name": "PediHub",
+  "short_name": "PediHub",
+  "description": "Centralize pedidos, integracoes e relatorios em um unico painel.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E53935",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "food"],
+  "lang": "pt-BR",
+  "dir": "ltr"
+}
