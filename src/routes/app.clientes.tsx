@@ -2,9 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Phone, ShoppingBag, TrendingUp, ChevronDown, ChevronUp, Loader2, Download } from "lucide-react";
+import { Search, Phone, ShoppingBag, TrendingUp, ChevronDown, ChevronUp, Loader2, Download, Crown, Ban, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCustomers, getCustomerHistory, type CustomerSummary, type CustomerHistory } from "@/lib/api";
+import { getCustomers, patchCustomerTag, getCustomerHistory, type CustomerSummary, type CustomerHistory } from "@/lib/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { statusLabels } from "@/lib/domain";
 import { useAuth } from "@/lib/auth";
 import {
@@ -30,6 +37,87 @@ const statusStyles = {
 };
 
 const fmtCurrency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+function CustomerRow({
+  customer,
+  onTagChange,
+}: {
+  customer: CustomerSummary;
+  onTagChange: (updated: CustomerSummary) => void;
+}) {
+  const [tagging, setTagging] = useState(false);
+
+  const applyTag = async (tag: "vip" | "blacklist" | null) => {
+    if (tagging) return;
+    setTagging(true);
+    try {
+      const updated = await patchCustomerTag(customer.id, tag);
+      onTagChange(updated);
+      toast.success(tag === null ? "Tag removida." : tag === "vip" ? "Cliente marcado como VIP!" : "Cliente marcado como blacklist.");
+    } catch {
+      toast.error("Erro ao atualizar tag.");
+    } finally {
+      setTagging(false);
+    }
+  };
+
+  return (
+    <tr className="transition-colors hover:bg-muted/30">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-xs font-bold text-white">
+            {(customer.company ?? "?").split(" ").map((p) => p[0]).slice(0, 2).join("")}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="font-semibold leading-tight truncate">{customer.company}</p>
+              {customer.tag === "vip" && (
+                <Crown className="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+              )}
+              {customer.tag === "blacklist" && (
+                <Ban className="h-3.5 w-3.5 shrink-0 text-destructive" />
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{customer.phone}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize", statusStyles[customer.status])}>
+          {customer.status}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right font-semibold">{customer.orderCount}</td>
+      <td className="px-4 py-3 text-right font-semibold">{fmt.format(customer.totalSpent)}</td>
+      <td className="px-4 py-3 text-muted-foreground">
+        {customer.lastOrderAt ? formatDateTime(customer.lastOrderAt) : "—"}
+      </td>
+      <td className="px-4 py-3 text-muted-foreground">{formatDate(customer.signupDate)}</td>
+      <td className="px-4 py-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={tagging}>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => applyTag("vip")} disabled={customer.tag === "vip"}>
+              <Crown className="mr-2 h-4 w-4 text-yellow-500" /> Marcar como VIP
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => applyTag("blacklist")} disabled={customer.tag === "blacklist"}>
+              <Ban className="mr-2 h-4 w-4 text-destructive" /> Marcar como Blacklist
+            </DropdownMenuItem>
+            {customer.tag && (
+              <DropdownMenuItem onClick={() => applyTag(null)}>
+                Remover tag
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </tr>
+  );
+}
 
 function exportCsv(items: CustomerSummary[]) {
   const header = ["Empresa", "Telefone", "Status", "Pedidos", "Total Gasto", "Ultimo Pedido", "Cadastro"];
@@ -127,40 +215,22 @@ function AdminCustomersView() {
                 <th className="px-4 py-3 text-right font-medium">Total gasto</th>
                 <th className="px-4 py-3 text-left font-medium">Ultimo pedido</th>
                 <th className="px-4 py-3 text-left font-medium">Cadastro</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
-                <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">Carregando clientes...</td></tr>
+                <tr><td colSpan={7} className="py-16 text-center text-muted-foreground">Carregando clientes...</td></tr>
               ) : error ? (
-                <tr><td colSpan={6} className="py-16 text-center text-destructive">{error}</td></tr>
+                <tr><td colSpan={7} className="py-16 text-center text-destructive">{error}</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={6} className="py-16 text-center text-muted-foreground">Nenhum estabelecimento encontrado.</td></tr>
+                <tr><td colSpan={7} className="py-16 text-center text-muted-foreground">Nenhum estabelecimento encontrado.</td></tr>
               ) : items.map((customer) => (
-                <tr key={customer.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-xs font-bold text-white">
-                        {(customer.company ?? "?").split(" ").map((p) => p[0]).slice(0, 2).join("")}
-                      </div>
-                      <div>
-                        <p className="font-semibold leading-tight">{customer.company}</p>
-                        <p className="text-xs text-muted-foreground">{customer.phone}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize", statusStyles[customer.status])}>
-                      {customer.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold">{customer.orderCount}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{fmt.format(customer.totalSpent)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {customer.lastOrderAt ? formatDateTime(customer.lastOrderAt) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(customer.signupDate)}</td>
-                </tr>
+                <CustomerRow
+                  key={customer.id}
+                  customer={customer}
+                  onTagChange={(updated) => setItems(prev => prev.map(c => c.id === updated.id ? updated : c))}
+                />
               ))}
             </tbody>
           </table>

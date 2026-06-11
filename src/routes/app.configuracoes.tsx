@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { 
-  getSettings, 
-  updateSettings, 
-  getLoyaltyProgram, 
+import {
+  getSettings,
+  updateSettings,
+  getLoyaltyProgram,
   updateLoyaltyProgram,
   getTables,
   createTable,
@@ -20,6 +20,8 @@ import {
   createCoupon,
   deleteCoupon,
   toggleCoupon,
+  activateSubscription,
+  getImageUrl,
   type LoyaltyProgram,
   type MerchantTable,
   type Coupon
@@ -52,7 +54,10 @@ import {
   Ticket,
   Upload,
   Image as ImageIcon,
-  Navigation
+  Navigation,
+  KeyRound,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/configuracoes")({
@@ -80,8 +85,11 @@ type FormState = {
   logoUrl: string;
   bannerUrl: string;
   pixKey: string;
-  mercadoPagoAccessToken: string;
+  efiClientId: string;
+  efiClientSecret: string;
+  efiSandbox: boolean;
   whatsAppNumber: string;
+  whatsAppAutoNotify: boolean;
   slug: string;
 };
 
@@ -106,18 +114,13 @@ const initialForm: FormState = {
   logoUrl: "",
   bannerUrl: "",
   pixKey: "",
-  mercadoPagoAccessToken: "",
+  efiClientId: "",
+  efiClientSecret: "",
+  efiSandbox: false,
   whatsAppNumber: "",
+  whatsAppAutoNotify: false,
   slug: "",
 };
-
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
-
-function getImageUrl(path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-}
 
 function SettingsPage() {
   const [form, setForm] = useState<FormState>(initialForm);
@@ -136,13 +139,16 @@ function SettingsPage() {
     isActive: true
   });
 
+  const [subscriptionValidUntil, setSubscriptionValidUntil] = useState<string | null>(null);
+  const [tokenCode, setTokenCode] = useState("");
+  const [activatingToken, setActivatingToken] = useState(false);
+
   const { user } = useAuth();
   const currentSlug = form.slug || user?.slug;
 
   useEffect(() => {
     Promise.all([getSettings(), getLoyaltyProgram(), getTables(), getCoupons()])
       .then(([settings, loyaltyData, tablesData, couponsData]) => {
-        console.log("Settings from API:", settings);
         setForm({
           ...settings,
           averagePrepMinutes: String(settings.averagePrepMinutes),
@@ -150,10 +156,14 @@ function SettingsPage() {
           minimumOrder: String(settings.minimumOrder),
           deliveryRadius: settings.deliveryRadius ?? 5,
           pixKey: settings.pixKey || "",
-          mercadoPagoAccessToken: settings.mercadoPagoAccessToken || "",
+          efiClientId: settings.efiClientId || "",
+          efiClientSecret: settings.efiClientSecret || "",
+          efiSandbox: settings.efiSandbox ?? false,
           whatsAppNumber: settings.whatsAppNumber || "",
+          whatsAppAutoNotify: settings.whatsAppAutoNotify ?? false,
           slug: settings.slug || "",
         });
+        if (settings.validUntil) setSubscriptionValidUntil(settings.validUntil);
         setLoyalty(loyaltyData);
         setTables(tablesData);
         setCoupons(couponsData);
@@ -167,9 +177,9 @@ function SettingsPage() {
     try {
       await updateSettings({
         ...form,
-        averagePrepMinutes: parseInt(form.averagePrepMinutes),
-        deliveryFeeBase: parseFloat(form.deliveryFeeBase),
-        minimumOrder: parseFloat(form.minimumOrder),
+        averagePrepMinutes: parseInt(form.averagePrepMinutes) || 0,
+        deliveryFeeBase: parseFloat(form.deliveryFeeBase) || 0,
+        minimumOrder: parseFloat(form.minimumOrder) || 0,
         deliveryRadius: form.deliveryRadius,
       });
       toast.success("Configuracoes salvas!");
@@ -293,7 +303,7 @@ function SettingsPage() {
           <TabsTrigger value="cupons" className="gap-2"><Ticket className="h-4 w-4" /> Cupons</TabsTrigger>
           <TabsTrigger value="fidelidade" className="gap-2"><Award className="h-4 w-4" /> Fidelidade</TabsTrigger>
           <TabsTrigger value="mesas" className="gap-2"><QrCode className="h-4 w-4" /> Mesas (QR)</TabsTrigger>
-          <TabsTrigger value="integracao" className="gap-2"><Globe className="h-4 w-4" /> Integrações API</TabsTrigger>
+          <TabsTrigger value="assinatura" className="gap-2"><KeyRound className="h-4 w-4" /> Assinatura</TabsTrigger>
         </TabsList>
 
          <TabsContent value="empresa" className="mt-6 space-y-4">
@@ -475,6 +485,23 @@ function SettingsPage() {
              </div>
              <Switch checked={form.autoAcceptOrders} onCheckedChange={v => setForm({...form, autoAcceptOrders: v})} />
            </div>
+
+           <div className="flex items-center justify-between rounded-xl border p-4 bg-muted/20">
+             <div>
+               <div className="flex items-center gap-2">
+                 <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                 <Label className="text-base font-bold">Notificação Automática WhatsApp</Label>
+               </div>
+               <p className="text-sm text-muted-foreground">Enviar mensagem ao cliente automaticamente a cada mudança de status do pedido.</p>
+               {form.whatsAppAutoNotify && !form.whatsAppNumber && (
+                 <p className="text-xs text-destructive mt-1">Configure o número de WhatsApp abaixo para ativar.</p>
+               )}
+             </div>
+             <Switch
+               checked={form.whatsAppAutoNotify}
+               onCheckedChange={v => setForm({...form, whatsAppAutoNotify: v})}
+             />
+           </div>
            <Button onClick={saveGeneral} disabled={saving}>Salvar Operação</Button>
          </TabsContent>
 
@@ -585,60 +612,78 @@ function SettingsPage() {
          </TabsContent>
 
         <TabsContent value="pagamentos" className="mt-6 space-y-6">
-          <div className="rounded-2xl border p-6 bg-card shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Mercado Pago (Pagamento Online)</h3>
-              {form.mercadoPagoAccessToken ? (
-                <span className="inline-flex items-center rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
-                  <Check className="mr-1 h-3.5 w-3.5" /> Conectado e Ativo
+
+          {/* Efí Bank */}
+          <div className="rounded-2xl border p-6 bg-card shadow-sm space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-bold">Efí Bank — PIX Automático</h3>
+                  <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-black text-green-600 uppercase">Sem Mensalidade</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Gera cobrança PIX automaticamente. O cliente paga, o webhook confirma e o pedido muda para "Pago". Paga apenas por transação.
+                </p>
+              </div>
+              {(form.efiClientId && form.efiClientSecret) ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
+                  <Check className="h-3.5 w-3.5" /> Configurado
                 </span>
               ) : (
-                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                  Nao Conectado
+                <span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                  Não configurado
                 </span>
               )}
             </div>
-            
-            <p className="text-sm text-muted-foreground mb-6">Conecte sua conta para aceitar Cartão e PIX automático com liberação imediata.</p>
-            
-            {form.mercadoPagoAccessToken ? (
-              <div className="flex flex-col gap-4 max-w-md">
-                <div className="rounded-lg border border-success/30 bg-success/5 p-4 flex items-center justify-between">
-                   <div>
-                     <p className="font-semibold text-success">Integração Funcional</p>
-                     <p className="text-xs text-success/80">Sua loja já pode processar pagamentos online.</p>
-                   </div>
+
+            <div className="rounded-xl border bg-muted/30 p-4 text-sm space-y-2">
+              <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Como configurar</p>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-sm">
+                <li>Acesse <a href="https://dev.efipay.com.br" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">dev.efipay.com.br</a> e crie um aplicativo</li>
+                <li>Copie o <strong>Client ID</strong> e <strong>Client Secret</strong> de produção</li>
+                <li>Cole abaixo e salve — o backend usa para gerar cobranças PIX</li>
+              </ol>
+            </div>
+
+            <div className="grid gap-4 max-w-lg">
+              <Field label="Client ID">
+                <Input
+                  value={form.efiClientId}
+                  onChange={e => setForm({...form, efiClientId: e.target.value})}
+                  placeholder="Client_Id_..."
+                  className="font-mono text-sm"
+                />
+              </Field>
+              <Field label="Client Secret">
+                <Input
+                  type="password"
+                  value={form.efiClientSecret}
+                  onChange={e => setForm({...form, efiClientSecret: e.target.value})}
+                  placeholder="Client_Secret_..."
+                  className="font-mono text-sm"
+                />
+              </Field>
+              <div className="flex items-center justify-between rounded-xl border p-4 bg-muted/20">
+                <div>
+                  <Label className="text-sm font-bold">Modo Sandbox (Testes)</Label>
+                  <p className="text-xs text-muted-foreground">Ative para testar sem cobranças reais.</p>
                 </div>
-                <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setForm({...form, mercadoPagoAccessToken: ""})}>
-                  Desconectar Conta
-                </Button>
+                <Switch checked={form.efiSandbox} onCheckedChange={v => setForm({...form, efiSandbox: v})} />
               </div>
-            ) : (
-              <div className="flex flex-col gap-4 max-w-md">
-                 <Button className="bg-[#009EE3] hover:bg-[#0087c1] text-white font-bold h-12" onClick={() => window.open("https://www.mercadopago.com.br/settings/account/credentials", "_blank")}>
-                   <Globe className="mr-2 h-5 w-5" /> Gerar Chave no Mercado Pago
-                 </Button>
-                 
-                 <div className="mt-2 space-y-1.5">
-                   <Label className="text-xs font-bold text-muted-foreground uppercase">Cole a Chave de Produção (Access Token) Aqui</Label>
-                   <Input 
-                     type="password"
-                     value={form.mercadoPagoAccessToken} 
-                     onChange={e => setForm({...form, mercadoPagoAccessToken: e.target.value})} 
-                     placeholder="APP_USR-..." 
-                     className="bg-muted/30 font-mono text-sm"
-                   />
-                 </div>
-              </div>
-            )}
+            </div>
           </div>
 
-          <div className="rounded-2xl border p-6 bg-card shadow-sm">
-            <h3 className="text-lg font-bold mb-4">PIX Direto (Transferência)</h3>
+          {/* PIX Key */}
+          <div className="rounded-2xl border p-6 bg-card shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-bold">Chave PIX da Loja</h3>
+              <p className="text-sm text-muted-foreground">Usada para gerar cobranças via Efí Bank e também como fallback de PIX manual.</p>
+            </div>
             <Field label="Chave PIX">
-              <Input value={form.pixKey} onChange={e => setForm({...form, pixKey: e.target.value})} placeholder="CPF, E-mail ou Chave Aleatoria" />
+              <Input value={form.pixKey} onChange={e => setForm({...form, pixKey: e.target.value})} placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória" />
             </Field>
           </div>
+
           <Button onClick={saveGeneral} disabled={saving}>Salvar Pagamentos</Button>
         </TabsContent>
 
@@ -688,14 +733,15 @@ function SettingsPage() {
                          </Button>
                       </div>
                       <Button variant="outline" size="sm" className="w-full text-[10px] uppercase font-bold" onClick={() => {
+                        const tableUrl = `${window.location.origin}/${currentSlug}?mesa=${table.number}`;
                         const printWindow = window.open('', '', 'width=600,height=800');
                         if(printWindow) {
                           printWindow.document.write(`
                             <html>
                               <head><title>Imprimir QR - Mesa ${table.number}</title></head>
-                              <body style="display:flex;flex-direction:column;align-items:center;justify-center;height:100vh;font-family:sans-serif;">
+                              <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;">
                                 <h1 style="font-size:3rem;margin-bottom:1rem;">MESA ${table.number}</h1>
-                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/store/mesa/${table.id}`)}" style="width:400px;height:400px;border: 4px solid black;padding: 10px;border-radius: 20px;" />
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(tableUrl)}" style="width:400px;height:400px;border: 4px solid black;padding: 10px;border-radius: 20px;" />
                                 <p style="margin-top:2rem;font-size:1.5rem;color:#666;text-align:center;">Escaneie o código<br/>para fazer seu pedido</p>
                               </body>
                             </html>
@@ -714,73 +760,98 @@ function SettingsPage() {
            </div>
         </TabsContent>
 
-        <TabsContent value="integracao" className="mt-6 space-y-6">
-           <div className="rounded-2xl border p-6 bg-card shadow-sm">
-             <h3 className="text-lg font-bold mb-2">Acesso à API - Token de Autenticação</h3>
-             <p className="text-sm text-muted-foreground mb-6">Use seu token para fazer requisições à API do PEDIHUB. Sua senha é seu token de autenticação.</p>
-             
-             <div className="space-y-4">
-               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                 <p className="text-sm font-semibold mb-2">URL Base da API</p>
-                 <div className="flex gap-2">
-                   <input 
-                     readOnly 
-                     type="text"
-                     value={`${API_URL}`}
-                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs font-mono"
-                   />
-                   <Button 
-                     variant="outline" 
-                     size="sm"
-                     onClick={() => {
-                       navigator.clipboard.writeText(`${API_URL}`);
-                       toast.success("URL copiada!");
-                     }}
-                   >
-                     <Copy className="h-4 w-4" />
-                   </Button>
-                 </div>
-               </div>
+        <TabsContent value="assinatura" className="mt-6 space-y-6">
+          {(() => {
+            const daysLeft = subscriptionValidUntil
+              ? Math.ceil((new Date(subscriptionValidUntil).getTime() - Date.now()) / 86400000)
+              : null;
+            const isExpired = daysLeft !== null && daysLeft <= 0;
+            const isWarning = daysLeft !== null && daysLeft > 0 && daysLeft <= 3;
 
-               <div className="rounded-lg border border-warning/20 bg-warning/5 p-4">
-                 <p className="text-sm font-semibold mb-2">Autenticação (Headers)</p>
-                 <code className="text-xs bg-muted/50 p-3 rounded block font-mono overflow-x-auto mb-3">
-                   Authorization: Bearer {user?.email}
-                 </code>
-                 <p className="text-xs text-muted-foreground">Inclua este header em todas suas requisições à API.</p>
-               </div>
+            const handleActivate = async () => {
+              if (!tokenCode.trim()) return toast.error("Cole o token antes de ativar.");
+              setActivatingToken(true);
+              try {
+                const result = await activateSubscription(tokenCode.trim());
+                setSubscriptionValidUntil(result.validUntil);
+                setTokenCode("");
+                toast.success("Assinatura ativada com sucesso!");
+              } catch (err: any) {
+                toast.error(err.message || "Token inválido ou já utilizado.");
+              } finally {
+                setActivatingToken(false);
+              }
+            };
 
-               <div className="rounded-lg border border-success/20 bg-success/5 p-4">
-                 <p className="text-sm font-semibold mb-3">Documentação de Endpoints</p>
-                 <div className="space-y-2 text-sm">
-                   <p><strong>Listar Pedidos:</strong></p>
-                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">GET {API_URL}/api/orders</code>
-                   
-                   <p className="mt-4"><strong>Obter Detalhes do Pedido:</strong></p>
-                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">GET {API_URL}/api/orders/{'{{orderId}}'}</code>
-                   
-                   <p className="mt-4"><strong>Atualizar Status do Pedido:</strong></p>
-                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">PATCH {API_URL}/api/orders/{'{{orderId}}'}/status</code>
-                   
-                   <p className="mt-4"><strong>Criar um Pedido:</strong></p>
-                   <code className="text-xs bg-muted/50 p-2 rounded block font-mono">POST {API_URL}/api/orders</code>
-                 </div>
-                 <Button variant="outline" size="sm" className="mt-4" asChild>
-                   <a href={`${API_URL}/docs`} target="_blank" rel="noopener noreferrer">
-                     Ver Documentação Completa →
-                   </a>
-                 </Button>
-               </div>
+            return (
+              <>
+                <div className="rounded-2xl border p-6 bg-card shadow-sm space-y-4">
+                  <div className="flex items-center gap-3">
+                    {isExpired ? (
+                      <AlertTriangle className="h-6 w-6 text-destructive" />
+                    ) : (
+                      <ShieldCheck className="h-6 w-6 text-success" />
+                    )}
+                    <div>
+                      <h3 className="text-lg font-bold">Status da Assinatura</h3>
+                      {subscriptionValidUntil ? (
+                        <p className={`text-sm font-medium ${isExpired ? "text-destructive" : isWarning ? "text-warning" : "text-success"}`}>
+                          {isExpired
+                            ? "Assinatura expirada"
+                            : `Ativa até ${new Intl.DateTimeFormat("pt-BR").format(new Date(subscriptionValidUntil))}${isWarning ? ` — ${daysLeft} dia${daysLeft !== 1 ? "s" : ""} restante${daysLeft !== 1 ? "s" : ""}` : ""}`}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Sem informação de validade. Insira um token para ativar.</p>
+                      )}
+                    </div>
+                  </div>
 
-               <div className="rounded-lg border border-info/20 bg-info/5 p-4">
-                 <p className="text-sm font-semibold mb-2">Contato e Suporte</p>
-                 <p className="text-xs text-muted-foreground mb-3">Para dúvidas sobre integração da API, entre em contato com o suporte técnico:</p>
-                 <p className="text-xs"><strong>Email:</strong> dev@pedihub.com.br</p>
-                 <p className="text-xs"><strong>Telefone:</strong> +55 11 98765-4321</p>
-               </div>
-             </div>
-           </div>
+                  {(isExpired || isWarning) && (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                      {isExpired
+                        ? "Seu acesso expirou. Insira o token de ativação abaixo para renovar e continuar usando a plataforma."
+                        : `Sua assinatura expira em ${daysLeft} dia${daysLeft !== 1 ? "s" : ""}. Insira o token de renovação para evitar interrupções.`}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border p-6 bg-card shadow-sm space-y-4">
+                  <h3 className="text-lg font-bold">Ativar / Renovar Assinatura</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Cole abaixo o token de ativação enviado pelo suporte PediHub. Cada token libera acesso por 31 dias (R$97/mês).
+                  </p>
+                  <div className="flex gap-3 max-w-lg">
+                    <Input
+                      placeholder="Cole seu token aqui..."
+                      value={tokenCode}
+                      onChange={e => setTokenCode(e.target.value)}
+                      className="font-mono"
+                    />
+                    <Button onClick={handleActivate} disabled={activatingToken || !tokenCode.trim()}>
+                      {activatingToken ? "Ativando..." : "Ativar"}
+                    </Button>
+                  </div>
+                  <div className="rounded-xl bg-muted/30 border p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between max-w-lg">
+                    <div>
+                      <p className="text-sm font-semibold">Precisa de um token?</p>
+                      <p className="text-xs text-muted-foreground">Fale com nosso suporte pelo WhatsApp e receba seu token na hora.</p>
+                    </div>
+                    <a
+                      href="https://wa.me/5511967594753"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-bold text-white hover:bg-[#20b757] transition-colors flex-shrink-0"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.528 5.845L0 24l6.335-1.508A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.806 9.806 0 01-5.034-1.39l-.361-.214-3.735.888.939-3.63-.235-.374A9.818 9.818 0 012.182 12C2.182 6.575 6.575 2.182 12 2.182c5.424 0 9.818 4.393 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
+                      Suporte (11) 96759-4753
+                    </a>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
+
       </Tabs>
     </div>
   );

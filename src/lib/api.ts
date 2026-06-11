@@ -120,6 +120,10 @@ export interface OrderDetail extends OrderListItem {
   couponDiscount: number;
   note?: string | null;
   cancellationReason?: string | null;
+  acceptedAt?: string | null;
+  preparingAt?: string | null;
+  readyAt?: string | null;
+  finishedAt?: string | null;
 }
 
 export interface DashboardSummary {
@@ -181,6 +185,7 @@ export interface CustomerSummary {
   signupDate: string;
   status: "ativo" | "trial" | "inativo";
   lastAccessAt?: string | null;
+  tag?: "vip" | "blacklist" | null;
 }
 
 export interface ReportSummaryBlock {
@@ -236,6 +241,7 @@ export interface SettingsPayload {
   logoUrl: string;
   bannerUrl: string;
   whatsAppNumber: string;
+  whatsAppAutoNotify?: boolean;
   slug: string;
   pixKey?: string;
   efiClientId?: string;
@@ -366,6 +372,7 @@ export interface AnalyticsSummary {
   totalRevenue: number;
   todayOrders: number;
   topProducts: TopProductMetric[];
+  avgActualPrepMinutes?: number | null;
 }
 
 export function getDashboard() {
@@ -491,6 +498,19 @@ export function deleteProduct(id: string) {
 
 export function getCustomers(search?: string) {
   return apiRequest<CustomerSummary[]>(`/api/customers${toQueryString({ search })}`);
+}
+
+export function patchCustomerTag(id: string, tag: "vip" | "blacklist" | null) {
+  return apiRequest<CustomerSummary>(`/api/customers/${encodeURIComponent(id)}/tag`, {
+    method: "PATCH",
+    body: JSON.stringify({ tag }),
+  });
+}
+
+export function getStoreLoyaltyBalance(slug: string, phone: string) {
+  return apiRequest<StoreLoyaltyBalance>(
+    `/api/store/${slug}/loyalty/balance?phone=${encodeURIComponent(phone)}`
+  );
 }
 
 export function getReports(params?: { from?: string; to?: string }) {
@@ -628,6 +648,20 @@ export function activateSubscription(code: string) {
 
 // Store (Customer Facing)
 
+export interface StoreLoyaltyProgram {
+  isActive: boolean;
+  pointsPerReal: number;
+  minPointsToRedeem: number;
+  redeemValue: number;
+}
+
+export interface StoreLoyaltyBalance {
+  phone: string;
+  points: number;
+  canRedeem: boolean;
+  redeemDiscount: number;
+}
+
 export interface StorePublic {
   id: string;
   companyName: string;
@@ -651,6 +685,7 @@ export interface StorePublic {
   state?: string;
   averagePrepMinutes?: number;
   isOpen?: boolean;
+  loyaltyProgram?: StoreLoyaltyProgram | null;
 }
 
 export interface StoreProduct {

@@ -1,14 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
-import { 
-  getStoreInfo, 
-  getStoreProducts, 
+import { useEffect, useRef, useState, useMemo } from "react";
+import {
+  getStoreInfo,
+  getStoreProducts,
+  getStoreOrder,
+  getStoreLoyaltyBalance,
   placeStoreOrder,
   validateCoupon,
-  type StorePublic, 
-  type StoreProduct, 
+  getImageUrl,
+  type StorePublic,
+  type StoreProduct,
   type StoreCartItem,
   type PlaceOrderPayload,
+  type StoreLoyaltyBalance,
   type Coupon
 } from "@/lib/api";
 import { isValidPhone } from "@/lib/validators";
@@ -35,7 +39,9 @@ import {
   Globe,
   Navigation,
   ExternalLink,
-  Copy
+  Copy,
+  Award,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,34 +68,38 @@ const fmt = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
-
-function getImageUrl(path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-}
-
 function StorePage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
+
+  // Detect table mode from ?mesa=X URL param
+  const mesaNumber = useMemo(() => new URLSearchParams(window.location.search).get("mesa") ?? "", []);
+  const isMesa = mesaNumber !== "";
+
   const [store, setStore] = useState<StorePublic | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<StoreCartItem[]>([]);
+  const submittingRef = useRef(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState<number | null>(null);
   const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [pixData, setPixData] = useState<{
+    qrCodeBase64?: string;
+    copyPaste?: string;
+    staticKey?: string;
+    orderNumber: number;
+  } | null>(null);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState<StoreLoyaltyBalance | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
     customerName: "",
     customerPhone: "",
-    type: "delivery" as "delivery" | "pickup",
+    type: (isMesa ? "mesa" : "delivery") as "delivery" | "pickup" | "mesa",
     payment: "pix" as "pix" | "cartao" | "dinheiro",
     changeFor: "",
     zipCode: "",
@@ -100,6 +110,7 @@ function StorePage() {
     state: "",
     complement: "",
     referencePoint: "",
+    note: "",
   });
 
   useEffect(() => {
@@ -121,10 +132,35 @@ function StorePage() {
     load();
   }, [slug]);
 
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+
   const categories = useMemo(() => {
     const cats = Array.from(new Set(products.map(p => p.category || "Geral")));
     return cats;
   }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (!search.trim()) return products;
+    const q = search.toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.description ?? "").toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
+  const visibleCategories = useMemo(() => {
+    if (!search.trim()) return categories;
+    return categories.filter(cat =>
+      filteredProducts.some(p => (p.category || "Geral") === cat)
+    );
+  }, [categories, filteredProducts, search]);
+
+  const scrollToCategory = (cat: string) => {
+    setActiveCategory(cat);
+    const el = document.getElementById(`cat-${cat}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const addToCart = (product: StoreProduct) => {
     setCart(prev => {
@@ -195,6 +231,12 @@ function StorePage() {
     setCouponInput("");
   };
 
+  const updateItemObservation = (productId: string, observation: string) => {
+    setCart(prev => prev.map(item =>
+      item.productId === productId ? { ...item, observation } : item
+    ));
+  };
+
   const fetchAddress = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
     if (cleanCep.length !== 8) return;
@@ -216,6 +258,23 @@ function StorePage() {
     }
   };
 
+  // Poll order status when showing dynamic PIX modal
+  useEffect(() => {
+    if (!pixData?.qrCodeBase64 || !pixModalOpen) return;
+    const orderNum = pixData.orderNumber;
+    const interval = setInterval(async () => {
+      try {
+        const order = await getStoreOrder(slug, orderNum);
+        if (order.status !== "novo") {
+          clearInterval(interval);
+          setPixModalOpen(false);
+          navigate({ to: "/pedido/$slug/$orderNumber", params: { slug, orderNumber: String(orderNum) } });
+        }
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [pixData, pixModalOpen, slug, navigate]);
+
   const handleSubmitOrder = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
     if (cart.length === 0) return;
@@ -225,49 +284,58 @@ function StorePage() {
       return;
     }
 
-    if (!isValidPhone(formData.customerPhone)) {
+    if (!isMesa && !isValidPhone(formData.customerPhone)) {
       toast.error("O numero de WhatsApp informado e invalido. Por favor, informe um DDD e numero validos.");
       return;
     }
 
-    // Se for PIX e o modal ainda nao estiver aberto, abre ele
-    if (formData.payment === "pix" && !pixModalOpen) {
-      setPixModalOpen(true);
-      return;
-    }
-
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setOrderLoading(true);
     try {
       const payload: PlaceOrderPayload = {
         ...formData,
+        type: isMesa ? "mesa" : formData.type,
+        tableNumber: isMesa ? mesaNumber : undefined,
         changeFor: formData.payment === "dinheiro" ? Number(formData.changeFor) : undefined,
         items: cart.map(item => ({
           productId: item.productId,
           name: item.name,
           quantity: item.quantity,
-          unitPrice: item.unitPrice
+          unitPrice: item.unitPrice,
+          observation: item.observation || undefined,
         })),
-        couponCode: appliedCoupon?.code
+        couponCode: appliedCoupon?.code,
+        note: formData.note.trim() || undefined,
       };
-      
-      const res = await placeStoreOrder(slug, payload);
 
-      if (res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
-        return;
-      }
+      const res = await placeStoreOrder(slug, payload);
 
       setCart([]);
       setCheckoutOpen(false);
-      setPixModalOpen(false);
-      
-      navigate({ 
-        to: "/pedido/$slug/$orderNumber", 
-        params: { slug, orderNumber: String(res.orderNumber) } 
+
+      // Dynamic PIX via Efí Bank
+      if (formData.payment === "pix" && (res.pixQrCodeBase64 || res.pixCopyPaste)) {
+        setPixData({ qrCodeBase64: res.pixQrCodeBase64, copyPaste: res.pixCopyPaste, orderNumber: res.orderNumber });
+        setPixModalOpen(true);
+        return;
+      }
+
+      // Static PIX key fallback
+      if (formData.payment === "pix" && store.pixKey) {
+        setPixData({ staticKey: store.pixKey, orderNumber: res.orderNumber });
+        setPixModalOpen(true);
+        return;
+      }
+
+      navigate({
+        to: "/pedido/$slug/$orderNumber",
+        params: { slug, orderNumber: String(res.orderNumber) }
       });
     } catch (err: any) {
       toast.error(err.message || "Erro ao realizar pedido.");
     } finally {
+      submittingRef.current = false;
       setOrderLoading(false);
     }
   };
@@ -349,7 +417,11 @@ function StorePage() {
           <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold md:text-3xl">{store.companyName}</h1>
-              <Badge variant="success">ABERTO AGORA</Badge>
+              {store.isOpen === false ? (
+                <Badge variant="destructive">FECHADO AGORA</Badge>
+              ) : (
+                <Badge variant="success">ABERTO AGORA</Badge>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
@@ -370,24 +442,89 @@ function StorePage() {
           </div>
         </div>
 
-        {/* Categories Navigation (Sticky) */}
-        <div className="sticky top-0 z-40 -mx-4 bg-background/80 px-4 py-4 backdrop-blur-md border-b">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <Button variant="default" size="sm" className="shrink-0 rounded-full px-6">Tudo</Button>
-            {categories.map(cat => (
-              <Button key={cat} variant="outline" size="sm" className="shrink-0 rounded-full px-6 hover:bg-primary/10 hover:text-primary border-primary/20">{cat}</Button>
-            ))}
+        {/* Loyalty program banner */}
+        {store.loyaltyProgram?.isActive && (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/20 px-5 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/40">
+              <Award className="h-5 w-5 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-yellow-800 dark:text-yellow-300">Programa de Fidelidade</p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                Ganhe <strong>{store.loyaltyProgram.pointsPerReal} ponto{store.loyaltyProgram.pointsPerReal !== 1 ? "s" : ""}</strong> por real gasto.
+                Com <strong>{store.loyaltyProgram.minPointsToRedeem} pontos</strong> você ganha <strong>{fmt.format(store.loyaltyProgram.redeemValue)}</strong> de desconto!
+              </p>
+            </div>
           </div>
+        )}
+
+        {/* Loja fechada banner */}
+        {store.isOpen === false && (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-2xl">🔒</span>
+            <div>
+              <p className="font-bold text-destructive">Loja temporariamente fechada</p>
+              <p className="text-sm text-muted-foreground">Este estabelecimento pausou os pedidos por um momento. Volte em breve!</p>
+            </div>
+          </div>
+        )}
+
+        {/* Categories Navigation + Search (Sticky) */}
+        <div className="sticky top-0 z-40 -mx-4 bg-background/95 px-4 py-3 backdrop-blur-md border-b space-y-2">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input
+              type="text"
+              placeholder="Buscar no cardápio..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full rounded-xl border bg-muted/50 pl-9 pr-4 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {!search && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <Button
+                variant={activeCategory === "all" ? "default" : "outline"}
+                size="sm"
+                className="shrink-0 rounded-full px-5"
+                onClick={() => { setActiveCategory("all"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              >
+                Tudo
+              </Button>
+              {categories.map(cat => (
+                <Button
+                  key={cat}
+                  variant={activeCategory === cat ? "default" : "outline"}
+                  size="sm"
+                  className="shrink-0 rounded-full px-5 hover:bg-primary/10 hover:text-primary border-primary/20"
+                  onClick={() => scrollToCategory(cat)}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Product Grid */}
         <div className="mt-8 flex flex-col gap-8 lg:flex-row pb-32">
           <div className="flex-1 space-y-10">
-            {categories.map(cat => (
-              <section key={cat} className="space-y-5">
+            {search.trim() && filteredProducts.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-lg font-semibold">Nenhum produto encontrado</p>
+                <p className="text-sm mt-1">Tente outra palavra-chave.</p>
+              </div>
+            )}
+            {visibleCategories.map(cat => (
+              <section key={cat} id={`cat-${cat}`} className="space-y-5 scroll-mt-32">
                 <h2 className="text-xl font-black tracking-tight border-l-4 border-primary pl-4">{cat}</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {products.filter(p => (p.category || "Geral") === cat).map(product => (
+                  {filteredProducts.filter(p => (p.category || "Geral") === cat).map(product => (
                     <div 
                       key={product.id} 
                       className="group relative flex gap-4 rounded-3xl border bg-card p-3 transition-all hover:shadow-xl hover:border-primary/30 cursor-pointer active:scale-[0.98]"
@@ -486,7 +623,14 @@ function StorePage() {
                         </div>
                       )}
 
-                      <Button className="w-full mt-4" size="lg" onClick={() => setCheckoutOpen(true)}>Finalizar Pedido</Button>
+                      <Button
+                        className="w-full mt-4"
+                        size="lg"
+                        disabled={store.isOpen === false}
+                        onClick={() => setCheckoutOpen(true)}
+                      >
+                        {store.isOpen === false ? "Loja fechada no momento" : "Finalizar Pedido"}
+                      </Button>
                     </div>
                   </>
                 )}
@@ -499,9 +643,10 @@ function StorePage() {
       {/* Mobile Floating Cart Button */}
       {cart.length > 0 && !checkoutOpen && (
         <div className="fixed bottom-6 left-0 right-0 z-50 px-4 lg:hidden">
-          <Button 
-            className="h-14 w-full justify-between rounded-full px-6 shadow-2xl" 
+          <Button
+            className="h-14 w-full justify-between rounded-full px-6 shadow-2xl"
             size="lg"
+            disabled={store.isOpen === false}
             onClick={() => setCheckoutOpen(true)}
           >
             <div className="flex items-center gap-3">
@@ -519,17 +664,56 @@ function StorePage() {
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Finalizar Pedido</DialogTitle>
-            <DialogDescription>Preencha os dados abaixo para enviar seu pedido para a loja.</DialogDescription>
+            <DialogTitle>Finalizar Pedido{isMesa ? ` — Mesa ${mesaNumber}` : ""}</DialogTitle>
+            <DialogDescription>
+              {isMesa
+                ? `Pedido da Mesa ${mesaNumber}. Confirme os itens e preencha seu nome.`
+                : "Preencha os dados abaixo para enviar seu pedido para a loja."}
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmitOrder} className="space-y-6 py-4">
-            {/* Delivery/Pickup Toggle */}
+            {/* Mesa badge */}
+            {isMesa && (
+              <div className="flex items-center gap-3 rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-lg">
+                  {mesaNumber}
+                </div>
+                <div>
+                  <p className="font-bold">Mesa {mesaNumber}</p>
+                  <p className="text-xs text-muted-foreground">Pedido será enviado direto para a cozinha.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Itens do pedido com observação */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Itens do Pedido</Label>
+              <div className="space-y-2 rounded-2xl border bg-muted/30 p-3">
+                {cart.map(item => (
+                  <div key={item.productId} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{item.quantity}× {item.name}</span>
+                      <span className="font-bold text-primary">{fmt.format(item.unitPrice * item.quantity)}</span>
+                    </div>
+                    <Input
+                      placeholder="Observação (ex: sem tomate, sem cebola...)"
+                      value={item.observation ?? ""}
+                      onChange={e => updateItemObservation(item.productId, e.target.value)}
+                      className="h-7 text-xs bg-background"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery/Pickup Toggle — oculto no modo mesa */}
+            {!isMesa && (
             <div className="space-y-3">
               <Label>Como deseja receber seu pedido?</Label>
-              <RadioGroup 
-                defaultValue="delivery" 
-                value={formData.type} 
+              <RadioGroup
+                defaultValue="delivery"
+                value={formData.type}
                 onValueChange={(v: "delivery" | "pickup") => setFormData(p => ({ ...p, type: v }))}
                 className="grid grid-cols-2 gap-4"
               >
@@ -555,6 +739,7 @@ function StorePage() {
                 </div>
               </RadioGroup>
             </div>
+            )}
 
             {/* Address Details (if delivery) */}
             {formData.type === "delivery" && (
@@ -653,48 +838,78 @@ function StorePage() {
                 <Input id="name" value={formData.customerName} onChange={e => setFormData(p => ({ ...p, customerName: e.target.value }))} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone">WhatsApp</Label>
-                <Input id="phone" placeholder="(00) 00000-0000" value={formData.customerPhone} onChange={e => setFormData(p => ({ ...p, customerPhone: e.target.value }))} required />
+                <Label htmlFor="phone">WhatsApp {isMesa && <span className="text-xs text-muted-foreground font-normal">(opcional)</span>}</Label>
+                <Input
+                  id="phone"
+                  placeholder="(00) 00000-0000"
+                  value={formData.customerPhone}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setFormData(p => ({ ...p, customerPhone: val }));
+                    const clean = val.replace(/\D/g, "");
+                    if (clean.length >= 10 && store.loyaltyProgram?.isActive) {
+                      getStoreLoyaltyBalance(slug, clean)
+                        .then(setLoyaltyBalance)
+                        .catch(() => setLoyaltyBalance(null));
+                    } else {
+                      setLoyaltyBalance(null);
+                    }
+                  }}
+                  required={!isMesa}
+                />
+                {loyaltyBalance && store.loyaltyProgram?.isActive && (
+                  <div className={cn(
+                    "mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm",
+                    loyaltyBalance.canRedeem
+                      ? "border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 text-yellow-800 dark:text-yellow-300"
+                      : "border-border bg-muted/50 text-muted-foreground"
+                  )}>
+                    <Star className={cn("h-4 w-4 shrink-0", loyaltyBalance.canRedeem ? "text-yellow-500" : "text-muted-foreground")} />
+                    <span>
+                      <strong>{loyaltyBalance.points} pontos</strong>
+                      {loyaltyBalance.canRedeem
+                        ? ` — você pode resgatar ${fmt.format(loyaltyBalance.redeemDiscount)} de desconto neste pedido!`
+                        : ` — faltam ${store.loyaltyProgram.minPointsToRedeem - loyaltyBalance.points} pontos para resgatar desconto.`}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Payment Method */}
             <div className="space-y-3">
-              <Label>Forma de Pagamento (na entrega)</Label>
-              <RadioGroup 
-                value={formData.payment} 
+              <Label>Forma de Pagamento</Label>
+              <RadioGroup
+                value={formData.payment}
                 onValueChange={(v: any) => setFormData(p => ({ ...p, payment: v }))}
-                className={cn("grid gap-2", store.mercadoPagoActive ? "grid-cols-2" : "grid-cols-3")}
+                className="grid grid-cols-3 gap-2"
               >
-                {store.mercadoPagoActive && (
-                  <div className="col-span-2">
-                    <RadioGroupItem value="mercado_pago_online" id="p-mp" className="peer sr-only" />
-                    <Label htmlFor="p-mp" className="flex items-center justify-center gap-3 rounded-xl border-2 p-4 hover:bg-muted peer-data-[state=checked]:border-[#009EE3] peer-data-[state=checked]:bg-[#009EE3]/5 cursor-pointer transition-all">
-                      <Globe className="h-5 w-5 text-[#009EE3]" />
-                      <div className="text-left">
-                        <p className="text-sm font-bold">Pagar Online Agora</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-black">Cartão ou PIX via Mercado Pago</p>
-                      </div>
-                    </Label>
-                  </div>
-                )}
-                <div>
+                <div className={store.efiActive ? "col-span-3" : ""}>
                   <RadioGroupItem value="pix" id="p-pix" className="peer sr-only" />
-                  <Label htmlFor="p-pix" className="flex flex-col items-center gap-2 rounded-xl border p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer">
-                    <QrCode className="h-5 w-5" />
-                    <span className="text-xs font-bold">Pix</span>
+                  <Label
+                    htmlFor="p-pix"
+                    className={cn(
+                      "flex cursor-pointer gap-2 rounded-xl border-2 p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 transition-all",
+                      store.efiActive ? "flex-row items-center justify-center" : "flex-col items-center"
+                    )}
+                  >
+                    <QrCode className="h-5 w-5 text-primary" />
+                    <div className={store.efiActive ? "text-left" : "text-center"}>
+                      <p className="text-sm font-bold">{store.efiActive ? "PIX — Pagamento Instantâneo" : "PIX"}</p>
+                      {store.efiActive && <p className="text-[10px] text-muted-foreground">QR Code gerado automaticamente</p>}
+                    </div>
                   </Label>
                 </div>
                 <div>
                   <RadioGroupItem value="cartao" id="p-card" className="peer sr-only" />
-                  <Label htmlFor="p-card" className="flex flex-col items-center gap-2 rounded-xl border p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer">
+                  <Label htmlFor="p-card" className="flex flex-col items-center gap-2 rounded-xl border-2 p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all">
                     <CreditCard className="h-5 w-5" />
                     <span className="text-xs font-bold">Cartão</span>
                   </Label>
                 </div>
                 <div>
                   <RadioGroupItem value="dinheiro" id="p-cash" className="peer sr-only" />
-                  <Label htmlFor="p-cash" className="flex flex-col items-center gap-2 rounded-xl border p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer">
+                  <Label htmlFor="p-cash" className="flex flex-col items-center gap-2 rounded-xl border-2 p-3 hover:bg-muted peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all">
                     <Banknote className="h-5 w-5" />
                     <span className="text-xs font-bold">Dinheiro</span>
                   </Label>
@@ -739,6 +954,21 @@ function StorePage() {
               </div>
             </div>
 
+            {/* Observacao do pedido */}
+            <div className="space-y-2">
+              <Label htmlFor="note" className="flex items-center gap-1.5">
+                Observacao <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
+              </Label>
+              <textarea
+                id="note"
+                rows={2}
+                placeholder="Ex: sem cebola, ponto da carne bem passado..."
+                value={formData.note ?? ""}
+                onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
             <DialogFooter>
               <Button type="submit" className="w-full h-12 text-lg" disabled={orderLoading}>
                 {orderLoading ? "Enviando Pedido..." : "Confirmar e Enviar"}
@@ -748,50 +978,116 @@ function StorePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pix Payment Modal */}
+      {/* PIX Payment Modal */}
       <Dialog open={pixModalOpen} onOpenChange={setPixModalOpen}>
-        <DialogContent className="max-w-sm text-center py-8">
+        <DialogContent className="max-w-sm py-8">
           <DialogHeader>
-            <DialogTitle className="text-center text-xl">Pagamento via Pix</DialogTitle>
+            <DialogTitle className="text-center text-xl">Pagamento via PIX</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
-            <div className="flex flex-col items-center gap-4">
-              <div className="bg-white p-2 rounded-xl shadow-sm border">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(store.pixKey || "")}`} 
-                  alt="QR Code Pix"
-                  className="h-40 w-40"
-                />
-              </div>
-              <p className="text-sm font-bold">Escaneie o QR Code</p>
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Copie a chave abaixo para pagar:</p>
-              <div className="flex items-center gap-2 rounded-xl border bg-muted p-3">
-                <code className="flex-1 overflow-hidden text-ellipsis text-xs font-bold">{store.pixKey || "Chave não cadastrada"}</code>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-8 w-8 p-0" 
-                  onClick={() => {
-                    navigator.clipboard.writeText(store.pixKey);
-                    toast.success("Chave Pix copiada!");
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
 
-            <div className="rounded-2xl bg-yellow-500/10 p-4 text-xs text-yellow-600 font-medium">
-              Apos o pagamento, clique no botao abaixo para enviar seu pedido para a cozinha.
-            </div>
+          {pixData?.qrCodeBase64 ? (
+            /* Dynamic PIX via Efí Bank */
+            <div className="space-y-5">
+              <div className="flex flex-col items-center gap-3">
+                <div className="rounded-2xl border-2 border-primary/20 bg-white p-3 shadow-sm">
+                  <img
+                    src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                    alt="QR Code PIX"
+                    className="h-44 w-44"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <svg className="h-4 w-4 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  Aguardando pagamento...
+                </div>
+              </div>
 
-            <Button className="w-full h-12" onClick={handleSubmitOrder} disabled={orderLoading}>
-              {orderLoading ? "Enviando..." : "Ja paguei, enviar pedido"}
-            </Button>
-          </div>
+              {pixData.copyPaste && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground text-center">Ou use o PIX Copia e Cola</p>
+                  <div className="flex items-center gap-2 rounded-xl border bg-muted p-3">
+                    <code className="flex-1 overflow-hidden text-ellipsis text-xs font-mono">{pixData.copyPaste}</code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0 p-0"
+                      onClick={() => {
+                        navigator.clipboard.writeText(pixData.copyPaste!);
+                        toast.success("PIX Copia e Cola copiado!");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-2xl bg-green-500/10 p-3 text-center text-xs text-green-700 font-medium">
+                Confirmacao automatica — seu pedido sera enviado para a cozinha assim que o pagamento for detectado.
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setPixModalOpen(false);
+                  navigate({ to: "/pedido/$slug/$orderNumber", params: { slug, orderNumber: String(pixData!.orderNumber) } });
+                }}
+              >
+                Ir para Acompanhamento
+              </Button>
+            </div>
+          ) : (
+            /* Static PIX key fallback */
+            <div className="space-y-5">
+              <div className="flex flex-col items-center gap-3">
+                <div className="rounded-2xl border-2 border-primary/20 bg-white p-3 shadow-sm">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixData?.staticKey || "")}`}
+                    alt="QR Code PIX"
+                    className="h-44 w-44"
+                  />
+                </div>
+                <p className="text-sm font-bold">Escaneie o QR Code</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground text-center">Ou copie a chave PIX</p>
+                <div className="flex items-center gap-2 rounded-xl border bg-muted p-3">
+                  <code className="flex-1 overflow-hidden text-ellipsis text-xs font-bold">{pixData?.staticKey || "Chave nao cadastrada"}</code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 shrink-0 p-0"
+                    onClick={() => {
+                      if (!pixData?.staticKey) return;
+                      navigator.clipboard.writeText(pixData.staticKey);
+                      toast.success("Chave PIX copiada!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-yellow-500/10 p-3 text-center text-xs text-yellow-600 font-medium">
+                Seu pedido ja foi registrado. Realize o pagamento e acompanhe o status.
+              </div>
+
+              <Button
+                className="w-full h-12"
+                onClick={() => {
+                  setPixModalOpen(false);
+                  navigate({ to: "/pedido/$slug/$orderNumber", params: { slug, orderNumber: String(pixData!.orderNumber) } });
+                }}
+              >
+                Acompanhar Pedido
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
       {/* Floating Cart Button (Mobile) */}
