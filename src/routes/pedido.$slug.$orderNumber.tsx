@@ -16,7 +16,10 @@ import {
   ArrowLeft,
   MessageCircle,
   Printer,
-  Download
+  QrCode,
+  CircleCheck,
+  XCircle,
+  Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -180,17 +183,110 @@ function OrderTrackingPage() {
     );
   }
 
+  // — Aguardando pagamento PIX —
+  if (order.status === "aguardando_pagamento") {
+    return (
+      <div className="min-h-screen bg-muted/20 pb-12">
+        <div className="bg-card border-b px-4 py-4 sticky top-0 z-10">
+          <div className="mx-auto max-w-2xl flex items-center justify-between">
+            <Link to={`/${slug}`} className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+              {store.companyName}
+            </Link>
+            <span className="text-sm font-bold bg-muted px-3 py-1 rounded-full">Pedido #{order.number}</span>
+          </div>
+        </div>
+        <div className="mx-auto max-w-md px-4 py-16 flex flex-col items-center gap-8 text-center">
+          <div className="relative flex items-center justify-center">
+            <span className="absolute h-36 w-36 animate-ping rounded-full bg-yellow-400/20" />
+            <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-yellow-500/10 border-2 border-yellow-400">
+              <QrCode className="h-12 w-12 text-yellow-500" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black">Aguardando seu pagamento PIX</h1>
+            <p className="text-muted-foreground">
+              Abra o app do seu banco, escaneie o QR Code e conclua o pagamento. Assim que confirmarmos, seu pedido entra na fila da cozinha automaticamente.
+            </p>
+          </div>
+          <div className="w-full rounded-2xl border bg-card p-5 space-y-3 text-left">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Resumo</p>
+            {order.items.map((item, idx) => (
+              <div key={idx} className="flex justify-between text-sm">
+                <span>{item.qty}x {item.name}</span>
+                <span className="font-medium">{fmt.format(item.price * item.qty)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between font-bold pt-2 border-t">
+              <span>Total</span>
+              <span className="text-primary">{fmt.format(order.total)}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Esta pagina atualiza automaticamente a cada 20 segundos.</p>
+          <Button variant="outline" className="w-full" asChild>
+            <a href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="mr-2 h-4 w-4 text-green-500" />
+              Falar com a loja
+            </a>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // — Pedido Cancelado —
+  if (order.status === "cancelado") {
+    return (
+      <div className="min-h-screen bg-muted/20 pb-12">
+        <div className="bg-card border-b px-4 py-4 sticky top-0 z-10">
+          <div className="mx-auto max-w-2xl flex items-center justify-between">
+            <Link to={`/${slug}`} className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+              {store.companyName}
+            </Link>
+            <span className="text-sm font-bold bg-muted px-3 py-1 rounded-full">Pedido #{order.number}</span>
+          </div>
+        </div>
+        <div className="mx-auto max-w-md px-4 py-16 flex flex-col items-center gap-8 text-center">
+          <div className="flex h-28 w-28 items-center justify-center rounded-full bg-destructive/10 border-2 border-destructive/30">
+            <XCircle className="h-14 w-14 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black">Pedido Cancelado</h1>
+            <p className="text-muted-foreground">
+              Este pedido foi cancelado pela loja. Entre em contato pelo WhatsApp para mais informacoes ou faca um novo pedido.
+            </p>
+          </div>
+          <div className="flex flex-col w-full gap-3">
+            <Button asChild>
+              <a href={`https://wa.me/55${store.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Falar com a loja
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to={`/${slug}`}>Fazer novo pedido</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const steps = [
     { id: "novo", label: "Recebido", icon: Clock },
     { id: "aceito", label: "Aceito", icon: PackageCheck },
     { id: "preparando", label: "Na Cozinha", icon: ChefHat },
-    { id: "saiu_entrega", label: order.type === "delivery" ? "Em Entrega" : "Pronto para Retirada", icon: order.type === "delivery" ? Truck : StoreIcon },
-    { id: "finalizados", label: "Entregue", icon: CheckCircle2 },
+    { id: "saiu_entrega", label: order.type === "delivery" ? "Em Entrega" : "Pronto p/ Retirada", icon: order.type === "delivery" ? Truck : StoreIcon },
+    { id: "finalizado", label: "Entregue", icon: CheckCircle2 },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.id === order.status);
-  // Special case for "finalizado" mapping
-  const activeIndex = order.status === "finalizado" ? 4 : currentStepIndex === -1 ? 0 : currentStepIndex;
+  // pago = aguardou pagamento e foi confirmado, ainda não aceito = step 0
+  const activeIndex = order.status === "finalizado" ? 4
+    : order.status === "pago" ? 0
+    : currentStepIndex === -1 ? 0
+    : currentStepIndex;
 
   return (
     <div className="min-h-screen bg-muted/20 pb-12">
@@ -206,17 +302,30 @@ function OrderTrackingPage() {
       </div>
 
       <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
+        {/* PIX Confirmed Banner */}
+        {order.status === "pago" && (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 p-4">
+            <CircleCheck className="h-6 w-6 shrink-0 text-emerald-600" />
+            <div>
+              <p className="font-bold text-emerald-700 dark:text-emerald-400">Pagamento PIX confirmado!</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-500">Aguardando a loja aceitar seu pedido.</p>
+            </div>
+          </div>
+        )}
+
         {/* Status Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black tracking-tight">
-            {order.status === "novo" ? "Pedido Recebido! 🍟" :
+            {order.status === "pago" ? "PIX Confirmado! ✅" :
+             order.status === "novo" ? "Pedido Recebido! 🍟" :
              order.status === "aceito" ? "Tudo certo! ✅" :
              order.status === "preparando" ? "Saindo do forno! 👨‍🍳" :
              order.status === "saiu_entrega" ? (order.type === "delivery" ? "Esta a caminho! 🚀" : "Pode vir buscar! 🏠") :
              order.status === "finalizado" ? "Entregue! ✨" : "Aguardando..."}
           </h1>
           <p className="text-muted-foreground">
-            {order.status === "novo" ? "Estamos aguardando a loja confirmar seu pedido." :
+            {order.status === "pago" ? "Pagamento recebido. A loja vai aceitar em instantes." :
+             order.status === "novo" ? "Estamos aguardando a loja confirmar seu pedido." :
              order.status === "aceito" ? "A loja confirmou seu pedido e ja vai iniciar." :
              order.status === "preparando" ? "Seu pedido ja esta sendo preparado com carinho." :
              order.status === "saiu_entrega" ? (order.type === "delivery" ? "O motoboy ja saiu com seu pedido." : "Seu pedido ja esta pronto para ser retirado.") :
@@ -227,8 +336,8 @@ function OrderTrackingPage() {
         {/* Progress Tracker */}
         <div className="relative pt-12 pb-8">
           <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-muted rounded-full" />
-          <div 
-            className="absolute left-0 top-1/2 h-1 bg-primary rounded-full transition-all duration-1000" 
+          <div
+            className="absolute left-0 top-1/2 h-1 bg-primary rounded-full transition-all duration-1000"
             style={{ width: `${(activeIndex / (steps.length - 1)) * 100}%` }}
           />
           <div className="relative flex justify-between">
@@ -240,8 +349,8 @@ function OrderTrackingPage() {
                 <div key={step.id} className="flex flex-col items-center gap-3">
                   <div className={cn(
                     "relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-4 border-card transition-all duration-500",
-                    isPast ? "bg-primary text-primary-foreground" : 
-                    isCurrent ? "bg-primary text-primary-foreground scale-125 shadow-lg shadow-primary/20" : 
+                    isPast ? "bg-primary text-primary-foreground" :
+                    isCurrent ? "bg-primary text-primary-foreground scale-125 shadow-lg shadow-primary/20" :
                     "bg-muted text-muted-foreground"
                   )}>
                     <Icon className="h-5 w-5" />
@@ -257,6 +366,18 @@ function OrderTrackingPage() {
             })}
           </div>
         </div>
+
+        {/* Estimated Time */}
+        {order.status !== "finalizado" && order.status !== "saiu_entrega" && order.status !== "pronto_retirada" && store.averagePrepMinutes && (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border bg-card px-4 py-3 shadow-sm">
+            <Timer className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm text-muted-foreground">Previsao de preparo:</span>
+            <span className="text-sm font-bold">
+              {new Date(new Date(order.orderedAt).getTime() + store.averagePrepMinutes * 60000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <span className="text-xs text-muted-foreground">({store.averagePrepMinutes} min)</span>
+          </div>
+        )}
 
         {/* Order Info Card */}
         <div className="rounded-3xl border bg-card p-6 shadow-xl space-y-6">

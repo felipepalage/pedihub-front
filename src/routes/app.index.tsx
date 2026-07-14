@@ -9,6 +9,11 @@ import {
   XCircle,
   TrendingUp,
   AlertTriangle,
+  PackageSearch,
+  ImageIcon,
+  CreditCard,
+  Share2,
+  Rocket,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -27,7 +32,7 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { StatusBadge } from "@/components/orders/StatusBadge";
 import { channelLabels } from "@/lib/domain";
-import { getDashboard, getAnalyticsSummary, type DashboardSummary, type AnalyticsSummary } from "@/lib/api";
+import { getDashboard, getAnalyticsSummary, getSettings, getProducts, type DashboardSummary, type AnalyticsSummary, type Settings } from "@/lib/api";
 
 export const Route = createFileRoute("/app/")({
   component: DashboardPage,
@@ -47,17 +52,38 @@ const alertStyles = {
 function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [productCount, setProductCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([getDashboard(), getAnalyticsSummary()])
-      .then(([dashboardData, analyticsData]) => {
-        setData(dashboardData);
-        setAnalytics(analyticsData);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Nao foi possivel carregar o dashboard."))
-      .finally(() => setLoading(false));
+    let mounted = true;
+
+    const load = (initial = false) => {
+      Promise.all([getDashboard(), getAnalyticsSummary(), getSettings(), getProducts()])
+        .then(([dashboardData, analyticsData, settingsData, productsData]) => {
+          if (!mounted) return;
+          setData(dashboardData);
+          setAnalytics(analyticsData);
+          setSettings(settingsData);
+          setProductCount(productsData.length);
+        })
+        .catch((err) => {
+          if (!mounted) return;
+          if (initial) setError(err instanceof Error ? err.message : "Nao foi possivel carregar o dashboard.");
+        })
+        .finally(() => {
+          if (mounted && initial) setLoading(false);
+        });
+    };
+
+    load(true);
+    const interval = setInterval(() => load(false), 60000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   if (loading) {
@@ -133,6 +159,11 @@ function DashboardPage() {
           accent="destructive"
         />
       </div>
+
+      {/* Onboarding checklist — only shown when store has no orders yet */}
+      {data.recentOrders.length === 0 && settings && productCount !== null && (
+        <OnboardingChecklist settings={settings} productCount={productCount} slug={data.merchantName} />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] lg:col-span-2">
@@ -284,6 +315,101 @@ function DashboardPage() {
   );
 }
 
+function OnboardingChecklist({ settings, productCount, slug }: { settings: Settings; productCount: number; slug: string }) {
+  const steps = [
+    {
+      icon: CheckCircle2,
+      label: "Conta criada",
+      done: true,
+      link: null,
+    },
+    {
+      icon: PackageSearch,
+      label: "Adicionar produtos ao cardápio",
+      done: productCount > 0,
+      link: "/app/catalogo",
+      hint: productCount > 0 ? `${productCount} produto${productCount !== 1 ? "s" : ""} cadastrado${productCount !== 1 ? "s" : ""}` : "Nenhum produto ainda",
+    },
+    {
+      icon: ImageIcon,
+      label: "Configurar logo e perfil da loja",
+      done: !!settings.logoUrl,
+      link: "/app/configuracoes",
+      hint: settings.logoUrl ? "Logo configurada" : "Adicione sua logo em Configurações",
+    },
+    {
+      icon: CreditCard,
+      label: "Configurar pagamento (PIX ou Mercado Pago)",
+      done: !!(settings.pixKey || settings.mercadoPagoAccessToken),
+      link: "/app/configuracoes",
+      hint: settings.mercadoPagoAccessToken ? "Mercado Pago conectado" : settings.pixKey ? `PIX: ${settings.pixKey}` : "Configure em Configurações > Pagamentos",
+    },
+    {
+      icon: Share2,
+      label: "Compartilhar link da sua loja",
+      done: false,
+      link: null,
+      hint: `${window.location.origin}/${settings.slug || ""}`,
+      copyable: settings.slug,
+    },
+  ];
+
+  const doneCount = steps.filter(s => s.done).length;
+  const progress = Math.round((doneCount / steps.length) * 100);
+
+  return (
+    <div className="rounded-2xl border border-primary/20 bg-card shadow-[var(--shadow-card)] overflow-hidden">
+      <div className="flex items-center gap-3 p-5 border-b border-primary/10 bg-primary/5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <Rocket className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold">Configure sua loja</h3>
+          <p className="text-xs text-muted-foreground">{doneCount} de {steps.length} etapas concluídas</p>
+        </div>
+        <span className="text-sm font-black text-primary">{progress}%</span>
+      </div>
+      <div className="p-2">
+        <div className="mb-3 px-3 pt-2">
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+        {steps.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${step.done ? "opacity-60" : "hover:bg-muted/50"}`}
+            >
+              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${step.done ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                {step.done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.label}</p>
+                {step.hint && <p className="text-xs text-muted-foreground truncate">{step.hint}</p>}
+              </div>
+              {!step.done && step.link && (
+                <Link to={step.link as any} className="shrink-0 text-xs font-bold text-primary hover:underline">
+                  Configurar →
+                </Link>
+              )}
+              {!step.done && step.copyable && (
+                <button
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/${step.copyable}`); }}
+                  className="shrink-0 text-xs font-bold text-primary hover:underline"
+                >
+                  Copiar link
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PageState({ message, destructive = false }: { message: string; destructive?: boolean }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
@@ -307,6 +433,8 @@ function channelColor(channel: string) {
       return "var(--color-success)";
     case "site":
       return "var(--color-info)";
+    case "mesa":
+      return "#8B5CF6";
     default:
       return "var(--color-warning)";
   }

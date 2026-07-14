@@ -8,6 +8,8 @@ export interface SessionUser {
   merchantName: string;
   status: string;
   slug: string;
+  logoUrl?: string | null;
+  role?: string;
 }
 
 export interface SessionSnapshot {

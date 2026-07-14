@@ -17,12 +17,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
 import { Route as AppPedidosRouteImport } from './routes/app.pedidos'
+import { Route as AppKdsRouteImport } from './routes/app.kds'
 import { Route as AppIntegracoesRouteImport } from './routes/app.integracoes'
 import { Route as AppConfiguracoesRouteImport } from './routes/app.configuracoes'
 import { Route as AppClientesRouteImport } from './routes/app.clientes'
 import { Route as AppCatalogoRouteImport } from './routes/app.catalogo'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
-import { Route as AppKdsRouteImport } from './routes/app.kds'
 import { Route as PedidoSlugOrderNumberRouteImport } from './routes/pedido.$slug.$orderNumber'
 
 const LoginRoute = LoginRouteImport.update({
@@ -65,6 +65,11 @@ const AppPedidosRoute = AppPedidosRouteImport.update({
   path: '/pedidos',
   getParentRoute: () => AppRoute,
 } as any)
+const AppKdsRoute = AppKdsRouteImport.update({
+  id: '/kds',
+  path: '/kds',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppIntegracoesRoute = AppIntegracoesRouteImport.update({
   id: '/integracoes',
   path: '/integracoes',
@@ -90,11 +95,6 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
-const AppKdsRoute = AppKdsRouteImport.update({
-  id: '/kds',
-  path: '/kds',
-  getParentRoute: () => AppRoute,
-} as any)
 const PedidoSlugOrderNumberRoute = PedidoSlugOrderNumberRouteImport.update({
   id: '/pedido/$slug/$orderNumber',
   path: '/pedido/$slug/$orderNumber',
@@ -108,11 +108,11 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/pedidos': typeof AppPedidosRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
@@ -124,11 +124,11 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/pedidos': typeof AppPedidosRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app': typeof AppIndexRoute
@@ -142,11 +142,11 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/kds': typeof AppKdsRoute
   '/app/catalogo': typeof AppCatalogoRoute
   '/app/clientes': typeof AppClientesRoute
   '/app/configuracoes': typeof AppConfiguracoesRoute
   '/app/integracoes': typeof AppIntegracoesRoute
+  '/app/kds': typeof AppKdsRoute
   '/app/pedidos': typeof AppPedidosRoute
   '/app/relatorios': typeof AppRelatoriosRoute
   '/app/': typeof AppIndexRoute
@@ -161,11 +161,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
-    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
+    | '/app/kds'
     | '/app/pedidos'
     | '/app/relatorios'
     | '/app/'
@@ -177,11 +177,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
-    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
+    | '/app/kds'
     | '/app/pedidos'
     | '/app/relatorios'
     | '/app'
@@ -194,11 +194,11 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/login'
     | '/app/admin'
-    | '/app/kds'
     | '/app/catalogo'
     | '/app/clientes'
     | '/app/configuracoes'
     | '/app/integracoes'
+    | '/app/kds'
     | '/app/pedidos'
     | '/app/relatorios'
     | '/app/'
@@ -272,6 +272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPedidosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/kds': {
+      id: '/app/kds'
+      path: '/kds'
+      fullPath: '/app/kds'
+      preLoaderRoute: typeof AppKdsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/integracoes': {
       id: '/app/integracoes'
       path: '/integracoes'
@@ -307,13 +314,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/kds': {
-      id: '/app/kds'
-      path: '/kds'
-      fullPath: '/app/kds'
-      preLoaderRoute: typeof AppKdsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/pedido/$slug/$orderNumber': {
       id: '/pedido/$slug/$orderNumber'
       path: '/pedido/$slug/$orderNumber'
@@ -326,11 +326,11 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
-  AppKdsRoute: typeof AppKdsRoute
   AppCatalogoRoute: typeof AppCatalogoRoute
   AppClientesRoute: typeof AppClientesRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppIntegracoesRoute: typeof AppIntegracoesRoute
+  AppKdsRoute: typeof AppKdsRoute
   AppPedidosRoute: typeof AppPedidosRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -338,11 +338,11 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
-  AppKdsRoute: AppKdsRoute,
   AppCatalogoRoute: AppCatalogoRoute,
   AppClientesRoute: AppClientesRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppIntegracoesRoute: AppIntegracoesRoute,
+  AppKdsRoute: AppKdsRoute,
   AppPedidosRoute: AppPedidosRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppIndexRoute: AppIndexRoute,

@@ -20,6 +20,7 @@ import {
   deleteProduct,
   duplicateProduct,
   getProducts,
+  getImageUrl,
   toggleProductAvailability,
   updateProduct,
   uploadMedia,
@@ -69,15 +70,6 @@ const emptyForm: ProductFormState = {
   promo: false,
   modifierGroups: [],
 };
-
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5172";
-
-function getImageUrl(path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  if (path.startsWith("data:")) return path;
-  return `${API_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-}
 
 function CatalogPage() {
   const [cat, setCat] = useState<string>("Todas");
